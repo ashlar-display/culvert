@@ -136,17 +136,21 @@ flowchart LR
     hal["hdmi-hal"]
     culvert["culvert"]
     plumbob["plumbob"]
-    integration["integration layer (planned)"]
+    tmds["TMDS bring-up (planned)"]
+    integration["link orchestrator (planned)"]
 
     dt --> culvert
     hal --> culvert
     culvert -->|"implements ScdcClient"| plumbob
-    plumbob -.->|"will implement LinkTrainer"| integration
+    tmds -.->|"will adapt Scdc, behind a feature"| culvert
+    integration -.->|"will drive through its own trait"| plumbob
 ```
 
 `culvert` does not depend on `plumbob`. The relationship runs the other way: enabling the
 `plumbob` feature makes `Scdc<T>` implement `plumbob::ScdcClient`, and any crate that
-implements `ScdcClient` is substitutable.
+implements `ScdcClient` is substitutable. The planned TMDS bring-up crate takes the newer
+arrangement: it defines its own small SCDC trait and implements it over `Scdc<T>` in its own
+crate, behind a feature, so culvert gains no dependency on it.
 
 ## Out of scope
 

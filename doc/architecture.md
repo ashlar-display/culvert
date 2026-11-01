@@ -67,7 +67,7 @@ crate, which sequences culvert's operations according to the FRL training algori
 
 ## The SCDC Register Map
 
-SCDC is defined in HDMI 2.1 spec section 10.4. Registers are one byte wide, addressed
+SCDC is defined by HDMI 2.1. Registers are one byte wide, addressed
 by a one-byte offset over DDC/I²C to the sink's SCDC address (0x54).
 
 The register map divides into six functional groups. Bit positions are given per field;
@@ -168,7 +168,7 @@ counts stayed zero throughout, so clear on read and tearing could not be observe
 
 ### Sources
 
-The register map was originally written from a summary of the spec and was wrong in
+The register map was originally written from a secondary summary and was wrong in
 several places (FRL configuration in `Config_0`, shifted lock bits, `FRL_Start` and the
 LTP requests in the wrong registers, lane 3 CED at 0x56/0x57). The map above was rebuilt
 from open-source HDMI 2.1 implementations; every field was confirmed by at least two of
@@ -239,7 +239,7 @@ type for reads and clears with a run-time refusal (the first version, above); a 
 that strips `rr_test` from `UpdateFlags` (helps only callers who know to use it); keeping
 the silent omission (rejected: no silent failures).
 
-**Revisit when** any of these appears: the specification's text on `RR_Test`; a second
+**Revisit when** any of these appears: a public source that states the rule for `RR_Test`; a second
 implementation that states or contradicts the rule (for example, a clear helper in
 mainline `drm_scdc`); a sink that keeps `RR_Test` set and appears to expect the source to
 clear it; or a compliance report either way. Dropping the rule means adding an `rr_test`
@@ -394,7 +394,7 @@ pub enum LtpReq {
     Lfsr3,             // 0x8
     FfeChange,         // 0xE: sink requests an FFE level change
     RateChange,        // 0xF: sink requests a lower FRL rate
-    Reserved(u8),      // 0x9–0xD: undefined by the specification
+    Reserved(u8),      // 0x9–0xD: undefined by HDMI 2.1
 }
 
 /// Per-lane pattern requests from `Status_Flags_1` (0x41) and `Status_Flags_2` (0x42).
@@ -528,8 +528,8 @@ transport failures.
 
 ## The Culvert / Link Training Boundary
 
-This boundary is worth stating explicitly because the SCDC spec interleaves protocol
-mechanics and training algorithm steps.
+This boundary is worth stating explicitly because HDMI 2.1 describes SCDC protocol
+mechanics and training algorithm steps together.
 
 **Culvert's responsibility:** typed register access. Given a desired FRL rate, write it
 into `Config_1`. Given a status register, decode it into `StatusFlags`. Culvert does not
@@ -651,7 +651,7 @@ without the `plumbob` feature, for `thumbv7em-none-eabi`, a target without `std`
   This means the link training layer can swap culvert for any other `ScdcClient`
   implementation without touching culvert. The `plumbob` cargo feature gates the impl
   so culvert remains independently usable without the link training layer as a dependency.
-- **Spec accuracy and completeness.** Every field culvert decodes is checked against the
+- **Accuracy and completeness.** Every field culvert decodes is checked against the
   sources listed with the register map. No register is omitted because its consumer has
   not been built yet; registers not wrapped yet (`Update_1`, `Test_Config_0`,
   manufacturer identification) are tracked on the roadmap.
@@ -667,7 +667,7 @@ without the `plumbob` feature, for `thumbv7em-none-eabi`, a target without `std`
 - **Transport errors and protocol errors are distinct.** A caller should be able to tell
   whether a failure came from the I²C bus or from a request culvert refused.
 - **Stack-ordered delivery.** The 0.1.0 scope is the register coverage needed by the
-  link training crate. Everything else the spec defines is on the roadmap.
+  link training crate. Everything else the standard defines is on the roadmap.
 - **No unsafe code.** `#![forbid(unsafe_code)]`.
 - **Attested releases.** Every release is published through a GitHub Actions workflow
   that signs the `.crate` package with [SLSA Build Level 2](https://slsa.dev) provenance.
