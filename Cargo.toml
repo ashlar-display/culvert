@@ -18,7 +18,7 @@ all-features = true
 plumbob = ["dep:plumbob"]
 
 [dependencies]
-display-types = { version = "0.4.3", default-features = false }
+display-types = { version = ">=0.4.3, <0.6", default-features = false }
 hdmi-hal = { version = "0.6", default-features = false }
 plumbob = { optional = true, version = "0.4" }
 
