@@ -114,7 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `ch3_locked`, `frl_start` and `ltp_req` are removed; `StatusFlags::new` takes the
     seven flags in bit order.
   - Link training pattern requests are read per lane with `read_ltp_requests`.
-    `LtpReq` follows the spec values: LFSR 0–3 are 0x5–0x8, and `AllOnes`, `AllZeros`,
+    `LtpReq` follows HDMI 2.1's values: LFSR 0–3 are 0x5–0x8, and `AllOnes`, `AllZeros`,
     `NyquistClock`, `DdeCompliance`, `FfeChange` and `RateChange` are added. Every
     value decodes: the undefined ones (0x9–0xD) are `LtpReq::Reserved(value)`, so a
     stray value on one lane (such as the unused lane 3 at a 3-lane rate) no longer fails
@@ -349,9 +349,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Error types**
 
 - `ScdcError<E>` — two-variant enum distinguishing `Transport(E)` (I²C/DDC bus error) from
-  `Protocol(ProtocolError)` (spec-violating register content); marked `#[non_exhaustive]`.
+  `Protocol(ProtocolError)` (register content outside the defined values); marked `#[non_exhaustive]`.
 - `ProtocolError` — `UnknownFrlRate(u8)` and `UnknownLtpReq(u8)`; the inner `u8` is the raw
-  register field for diagnostics only — any out-of-spec value is unconditionally a violation.
+  register field for diagnostics only — any value outside the defined set is unconditionally a violation.
   Marked `#[non_exhaustive]`.
 
 **`plumbob` feature**

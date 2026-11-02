@@ -118,11 +118,11 @@ pub struct SourceTestConfig {
     /// Bit 5: the source should not time out link training.
     pub flt_no_timeout: bool,
     /// Bit 6: the source should use the maximum FRL rate with DSC. With `frl_max` also
-    /// set, the Amlogic (citing the specification) and NVIDIA drivers act on neither; the
+    /// set, the Amlogic (citing the standard) and NVIDIA drivers act on neither; the
     /// AMD driver trains at the maximum rate.
     pub dsc_frl_max: bool,
     /// Bit 7: the source should use the maximum FRL rate. With `dsc_frl_max` also set, the
-    /// Amlogic (citing the specification) and NVIDIA drivers act on neither; the AMD
+    /// Amlogic (citing the standard) and NVIDIA drivers act on neither; the AMD
     /// driver trains at the maximum rate.
     pub frl_max: bool,
 }
@@ -151,7 +151,7 @@ impl SourceTestConfig {
 /// Link Training Pattern requested by the sink for one lane: a 4-bit field in
 /// `Status_Flags_1` (0x41, lanes 0–1) or `Status_Flags_2` (0x42, lanes 2–3).
 ///
-/// Every 4-bit value decodes: the values the HDMI 2.1 specification leaves undefined
+/// Every 4-bit value decodes: the values HDMI 2.1 leaves undefined
 /// (0x9–0xD) are [`Reserved`](Self::Reserved), with the raw value. Whether one matters
 /// depends on the lanes in use, which the link training layer knows and culvert does not.
 #[non_exhaustive]
@@ -181,7 +181,7 @@ pub enum LtpReq {
     FfeChange,
     /// 0xF: the sink requests a lower FRL rate.
     RateChange,
-    /// 0x9–0xD: a value the specification leaves undefined.
+    /// 0x9–0xD: a value HDMI 2.1 leaves undefined.
     ///
     /// Build requests from a raw value with [`from_value`](Self::from_value), which only
     /// produces `Reserved` for 0x9–0xD. A `Reserved` built by hand with any other value

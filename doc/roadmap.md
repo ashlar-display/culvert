@@ -1,9 +1,29 @@
 # Roadmap
 
-Registers defined by the HDMI 2.1 SCDC specification (§10.4) that are not wrapped
+SCDC registers HDMI 2.1 defines that are not wrapped
 by culvert yet, plus the `Update_0` bit 7 (`LIP_Update`) that HDMI 2.2 adds. Methods for
 these groups may be added in later releases. Additions to registers culvert already reads
-follow at the end; each is additive.
+follow at the end; each is additive. Planned releases driven by the rest of the stack come
+first.
+
+---
+
+## Following hdmi-hal's PHY trait split
+
+culvert re-exports hdmi-hal's `ScdcTransport`, so hdmi-hal's planned breaking release
+(splitting its PHY trait by link mode, with new clock, delay and power traits) is a breaking
+release of culvert as well, even though culvert's own API does not change. It carries
+`read_tmds_config` (below).
+
+---
+
+## Reading `TMDS_Config` (0x20)
+
+culvert writes `TMDS_Config` (`write_tmds_config`) but cannot read it back. The planned
+TMDS bring-up crate checks, after a reconnect, whether the sink still holds the
+configuration the link needs, which takes a read: an additive `read_tmds_config`, with a
+`TMDS_Config` decoder in `codec` that also serves register dumps (see "Read-back decoders"
+below).
 
 ---
 
