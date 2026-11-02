@@ -15,6 +15,18 @@ culvert re-exports hdmi-hal's `ScdcTransport`, so hdmi-hal's planned breaking re
 release of culvert as well, even though culvert's own API does not change. It carries
 `read_tmds_config` (below).
 
+The same hdmi-hal release adds `DdcBus`, one trait for the whole DDC bus, and bounds
+`ScdcTransport::Error` by `DdcError`, whose `kind()` classifies a transport failure (no
+acknowledgement, timeout, busy, unsupported, detached, other). culvert follows:
+
+- **Re-exports** of `DdcError`, `DdcErrorKind` and `NoAcknowledgeSource` next to
+  `ScdcTransport`, since an implementor of `ScdcTransport` now writes them.
+- **`ScdcError::transport_kind()`**, additive: `Some(kind)` for a `Transport` error, `None`
+  for a protocol violation. Callers generic over the SCDC client can then tell a sink that
+  does not answer from a transient fault without reaching for the transport.
+- An `ScdcTransport` over a `DdcBus` is `hdmi-hal`'s adapter `ScdcOverDdc`; culvert does
+  not touch the DDC bus itself.
+
 ---
 
 ## Reading `TMDS_Config` (0x20)
