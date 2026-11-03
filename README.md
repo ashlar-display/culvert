@@ -11,14 +11,14 @@
 > **Part of [Ashlar](https://ashlar-display.org)** — a display connection stack in Rust,
 > HDMI 2.1 first: from EDID parsing through mode negotiation to FRL link training.
 >
-> [display-types](https://github.com/DracoWhitefire/display-types) ·
-> [piaf](https://github.com/DracoWhitefire/piaf) ·
-> [concordance](https://github.com/DracoWhitefire/concordance) ·
-> [cartouche](https://github.com/DracoWhitefire/cartouche) ·
+> [display-types](https://github.com/ashlar-display/display-types) ·
+> [piaf](https://github.com/ashlar-display/piaf) ·
+> [concordance](https://github.com/ashlar-display/concordance) ·
+> [cartouche](https://github.com/ashlar-display/cartouche) ·
 > **culvert** ·
-> [plumbob](https://github.com/DracoWhitefire/plumbob) ·
-> [hdmi-hal](https://github.com/DracoWhitefire/hdmi-hal) ·
-> [hdmi-hal-i2c-dev](https://github.com/DracoWhitefire/hdmi-hal-i2c-dev)
+> [plumbob](https://github.com/ashlar-display/plumbob) ·
+> [hdmi-hal](https://github.com/ashlar-display/hdmi-hal) ·
+> [hdmi-hal-i2c-dev](https://github.com/ashlar-display/hdmi-hal-i2c-dev)
 
 Typed access to the HDMI 2.1 SCDC register map.
 
@@ -136,17 +136,21 @@ flowchart LR
     hal["hdmi-hal"]
     culvert["culvert"]
     plumbob["plumbob"]
-    integration["integration layer (planned)"]
+    tmds["TMDS bring-up (planned)"]
+    integration["link orchestrator (planned)"]
 
     dt --> culvert
     hal --> culvert
     culvert -->|"implements ScdcClient"| plumbob
-    plumbob -.->|"will implement LinkTrainer"| integration
+    tmds -.->|"will adapt Scdc, behind a feature"| culvert
+    integration -.->|"will drive through its own trait"| plumbob
 ```
 
 `culvert` does not depend on `plumbob`. The relationship runs the other way: enabling the
 `plumbob` feature makes `Scdc<T>` implement `plumbob::ScdcClient`, and any crate that
-implements `ScdcClient` is substitutable.
+implements `ScdcClient` is substitutable. The planned TMDS bring-up crate takes the newer
+arrangement: it defines its own small SCDC trait and implements it over `Scdc<T>` in its own
+crate, behind a feature, so culvert gains no dependency on it.
 
 ## Out of scope
 

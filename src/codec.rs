@@ -1,5 +1,5 @@
 //! Register addresses and per-register encoding and decoding for the SCDC register map
-//! (HDMI 2.1 §10.4), without I/O.
+//! (HDMI 2.1), without I/O.
 //!
 //! [`Scdc`](crate::Scdc) uses these to turn register bytes into culvert's types and back;
 //! `culvert-async`'s client uses the same functions, so the register map exists once. A
@@ -23,47 +23,47 @@ use crate::register::{
 
 // --- Addresses
 
-/// `Sink_Version` (§10.4.1).
+/// `Sink_Version`.
 pub const SINK_VERSION: u8 = 0x01;
-/// `Source_Version` (§10.4.1).
+/// `Source_Version`.
 pub const SOURCE_VERSION: u8 = 0x02;
-/// `Update_0` (§10.4.2). `Update_1` (0x11) defines no fields in the HDMI 2.1
+/// `Update_0`. `Update_1` (0x11) defines no fields in the HDMI 2.1
 /// implementations this map is based on, so it is not accessed.
 pub const UPDATE_0: u8 = 0x10;
-/// `TMDS_Config` (§10.4.3).
+/// `TMDS_Config`.
 pub const TMDS_CONFIG: u8 = 0x20;
-/// `Scrambler_Status` (§10.4.3).
+/// `Scrambler_Status`.
 pub const SCRAMBLER_STATUS: u8 = 0x21;
-/// `Config_0` (§10.4.4).
+/// `Config_0`.
 pub const CONFIG_0: u8 = 0x30;
-/// `Config_1` (§10.4.4).
+/// `Config_1`.
 pub const CONFIG_1: u8 = 0x31;
-/// `Source_Test_Configuration` (§10.4.4).
+/// `Source_Test_Configuration`.
 pub const SOURCE_TEST_CONFIG: u8 = 0x35;
-/// `Status_Flags_0` (§10.4.4).
+/// `Status_Flags_0`.
 pub const STATUS_FLAGS_0: u8 = 0x40;
-/// `Status_Flags_1` (§10.4.4): link training requests for lanes 0–1.
+/// `Status_Flags_1`: link training requests for lanes 0–1.
 pub const STATUS_FLAGS_1: u8 = 0x41;
-/// `Status_Flags_2` (§10.4.4): link training requests for lanes 2–3.
+/// `Status_Flags_2`: link training requests for lanes 2–3.
 pub const STATUS_FLAGS_2: u8 = 0x42;
-/// `ERR_DET_0_L` (§10.4.5).
+/// `ERR_DET_0_L`.
 pub const ERR_DET_0_L: u8 = 0x50;
-/// `ERR_DET_0_H` (§10.4.5).
+/// `ERR_DET_0_H`.
 pub const ERR_DET_0_H: u8 = 0x51;
-/// `ERR_DET_1_L` (§10.4.5).
+/// `ERR_DET_1_L`.
 pub const ERR_DET_1_L: u8 = 0x52;
-/// `ERR_DET_1_H` (§10.4.5).
+/// `ERR_DET_1_H`.
 pub const ERR_DET_1_H: u8 = 0x53;
-/// `ERR_DET_2_L` (§10.4.5).
+/// `ERR_DET_2_L`.
 pub const ERR_DET_2_L: u8 = 0x54;
-/// `ERR_DET_2_H` (§10.4.5).
+/// `ERR_DET_2_H`.
 pub const ERR_DET_2_H: u8 = 0x55;
-/// `ERR_DET_Checksum` (§10.4.5): makes the CED registers it covers sum to zero (mod 256);
+/// `ERR_DET_Checksum`: makes the CED registers it covers sum to zero (mod 256);
 /// checked by [`decode_ced_block`].
 pub const ERR_DET_CHECKSUM: u8 = 0x56;
-/// `ERR_DET_3_L` (§10.4.5).
+/// `ERR_DET_3_L`.
 pub const ERR_DET_3_L: u8 = 0x57;
-/// `ERR_DET_3_H` (§10.4.5).
+/// `ERR_DET_3_H`.
 pub const ERR_DET_3_H: u8 = 0x58;
 /// `RS_Correction_L`: the Reed-Solomon correction count, low byte (FRL).
 pub const RS_CORRECTION_L: u8 = 0x59;
@@ -162,7 +162,7 @@ pub fn decode_status_flags(status_flags_0: u8) -> StatusFlags {
 /// Decodes the per-lane link training requests from `Status_Flags_1` (lanes 0–1) and
 /// `Status_Flags_2` (lanes 2–3), one nibble per lane, low nibble first.
 ///
-/// Every value decodes: one the HDMI 2.1 specification leaves undefined (0x9–0xD) is
+/// Every value decodes: one HDMI 2.1 leaves undefined (0x9–0xD) is
 /// [`LtpReq::Reserved`].
 pub fn decode_ltp_requests(status_flags_1: u8, status_flags_2: u8) -> LtpRequests {
     LtpRequests {
