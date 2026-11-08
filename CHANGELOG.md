@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The README names [spiritlevel](https://github.com/ashlar-display/spiritlevel)**, the
+  TMDS bring-up crate, in "Stack position" and its diagram, where it said "TMDS bring-up
+  (planned)"; the roadmap's `read_tmds_config` item names it too.
+- **The README's Ashlar block links the stack's crate list** instead of naming every crate,
+  so it no longer goes stale on crates.io when a crate is added.
+
 ## [0.3.1] - 2026-11-03
 
 ### Changed

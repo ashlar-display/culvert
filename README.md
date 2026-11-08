@@ -10,15 +10,7 @@
 
 > **Part of [Ashlar](https://ashlar-display.org)** — a display connection stack in Rust,
 > HDMI 2.1 first: from EDID parsing through mode negotiation to FRL link training.
->
-> [display-types](https://github.com/ashlar-display/display-types) ·
-> [piaf](https://github.com/ashlar-display/piaf) ·
-> [concordance](https://github.com/ashlar-display/concordance) ·
-> [cartouche](https://github.com/ashlar-display/cartouche) ·
-> **culvert** ·
-> [plumbob](https://github.com/ashlar-display/plumbob) ·
-> [hdmi-hal](https://github.com/ashlar-display/hdmi-hal) ·
-> [hdmi-hal-i2c-dev](https://github.com/ashlar-display/hdmi-hal-i2c-dev)
+> See [all crates](https://ashlar-display.org/crates.html).
 
 Typed access to the HDMI 2.1 SCDC register map.
 
@@ -136,7 +128,7 @@ flowchart LR
     hal["hdmi-hal"]
     culvert["culvert"]
     plumbob["plumbob"]
-    tmds["TMDS bring-up (planned)"]
+    tmds["spiritlevel"]
     integration["link orchestrator (planned)"]
 
     dt --> culvert
@@ -148,9 +140,10 @@ flowchart LR
 
 `culvert` does not depend on `plumbob`. The relationship runs the other way: enabling the
 `plumbob` feature makes `Scdc<T>` implement `plumbob::ScdcClient`, and any crate that
-implements `ScdcClient` is substitutable. The planned TMDS bring-up crate takes the newer
-arrangement: it defines its own small SCDC trait and implements it over `Scdc<T>` in its own
-crate, behind a feature, so culvert gains no dependency on it.
+implements `ScdcClient` is substitutable. [spiritlevel](https://github.com/ashlar-display/spiritlevel),
+the TMDS bring-up crate, takes the newer arrangement for its planned procedures: it defines
+its own small SCDC trait and implements it over `Scdc<T>` in its own crate, behind a
+feature, so culvert gains no dependency on it.
 
 ## Out of scope
 

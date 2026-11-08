@@ -31,9 +31,10 @@ acknowledgement, timeout, busy, unsupported, detached, other). culvert follows:
 
 ## Reading `TMDS_Config` (0x20)
 
-culvert writes `TMDS_Config` (`write_tmds_config`) but cannot read it back. The planned
-TMDS bring-up crate checks, after a reconnect, whether the sink still holds the
-configuration the link needs, which takes a read: an additive `read_tmds_config`, with a
+culvert writes `TMDS_Config` (`write_tmds_config`) but cannot read it back. The TMDS
+bring-up crate, [spiritlevel](https://github.com/ashlar-display/spiritlevel), plans a check,
+after a reconnect, whether the sink still holds the configuration the link needs, which
+takes a read: an additive `read_tmds_config`, with a
 `TMDS_Config` decoder in `codec` that also serves register dumps (see "Read-back decoders"
 below).
 
