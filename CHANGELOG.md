@@ -34,6 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The README's Ashlar block links the stack's crate list** instead of naming every crate,
   so it no longer goes stale on crates.io when a crate is added.
 
+### Internal
+
+- CI fails on `main`, and the publish workflow before anything is built, when `Cargo.toml`
+  has a `[patch]` section: `cargo package` drops it, so a release built with one would not
+  build from crates.io.
+
 ## [0.3.1] - 2026-11-03
 
 ### Changed
