@@ -19,7 +19,10 @@ pub enum ScdcError<E> {
 /// failed.
 ///
 /// Returned by [`Scdc::update_tmds_config`](crate::Scdc::update_tmds_config).
-#[non_exhaustive]
+///
+/// Deliberately exhaustive: a read-modify-write is a read and a write, never a third
+/// transfer, so a caller can map both variants without a wildcard arm that would have no
+/// error to carry.
 #[derive(Debug)]
 pub enum ReadModifyWriteError<E> {
     /// The read failed; nothing was written.
