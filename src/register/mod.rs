@@ -18,6 +18,18 @@ pub struct TmdsConfig {
     pub high_tmds_clock_ratio: bool,
 }
 
+/// What [`Scdc::read_tmds_config`](crate::Scdc::read_tmds_config) read from `TMDS_Config`
+/// (0x20): the two bits culvert decodes, and the whole byte, so a sink that sets reserved
+/// bits stays visible.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TmdsConfigReading {
+    /// `Scrambling_Enable` (bit 0) and `TMDS_Bit_Clock_Ratio` (bit 1).
+    pub config: TmdsConfig,
+    /// The byte as read, reserved bits included.
+    pub raw: u8,
+}
+
 /// Decoded content of `Scrambler_Status` (0x21).
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -96,7 +96,7 @@ the transport; [`doc/architecture.md`](doc/architecture.md) shows how.
 |---------------------------|-------------|---------|
 | Version                   | 0x01–0x02   | `read_sink_version`, `write_source_version` |
 | Update flags              | 0x10        | `read_update_flags`, `clear_update_flags` |
-| TMDS / scrambling         | 0x20–0x21   | `write_tmds_config`, `read_scrambler_status` |
+| TMDS / scrambling         | 0x20–0x21   | `write_tmds_config`, `read_tmds_config`, `update_tmds_config`, `read_scrambler_status` |
 | FRL config                | 0x30–0x31   | `write_config_0`, `write_frl_config` |
 | Source test configuration | 0x35        | `read_source_test_config` |
 | Status flags              | 0x40        | `read_status_flags` |

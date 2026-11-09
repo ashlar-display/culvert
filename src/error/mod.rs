@@ -15,6 +15,19 @@ pub enum ScdcError<E> {
     Protocol(ProtocolError),
 }
 
+/// The error of a read-modify-write of one register, saying which of its two transfers
+/// failed.
+///
+/// Returned by [`Scdc::update_tmds_config`](crate::Scdc::update_tmds_config).
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum ReadModifyWriteError<E> {
+    /// The read failed; nothing was written.
+    Read(ScdcError<E>),
+    /// The read succeeded and the write failed; whether the sink took the write is unknown.
+    Write(ScdcError<E>),
+}
+
 /// What culvert refuses because it would violate the SCDC protocol.
 ///
 /// Every value a sink can report decodes (an undefined link training request is

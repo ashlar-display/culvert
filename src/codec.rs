@@ -83,6 +83,21 @@ pub fn encode_tmds_config(config: TmdsConfig) -> u8 {
     (config.scrambling_enable as u8) | ((config.high_tmds_clock_ratio as u8) << 1)
 }
 
+/// Decodes `TMDS_Config`: `Scrambling_Enable` (bit 0) and `TMDS_Bit_Clock_Ratio` (bit 1).
+/// The other bits are reserved and not decoded.
+pub fn decode_tmds_config(byte: u8) -> TmdsConfig {
+    TmdsConfig {
+        scrambling_enable: byte & 0x01 != 0,
+        high_tmds_clock_ratio: byte & 0x02 != 0,
+    }
+}
+
+/// The `TMDS_Config` byte to write back after reading `byte`: bits 0 and 1 from `config`,
+/// every other bit as read.
+pub fn update_tmds_config_byte(byte: u8, config: TmdsConfig) -> u8 {
+    (byte & !0x03) | encode_tmds_config(config)
+}
+
 /// Decodes `Scrambler_Status`: the sink confirms TMDS scrambling is active (bit 0).
 pub fn decode_scrambler_status(byte: u8) -> ScramblerStatus {
     ScramblerStatus {

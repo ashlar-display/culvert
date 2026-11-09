@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`Scdc::read_tmds_config`** reads `TMDS_Config` (0x20) and returns a
+  `TmdsConfigReading`: the two bits `write_tmds_config` sets, and the whole byte, so a
+  sink that sets reserved bits stays visible.
+- **`Scdc::update_tmds_config`**: a read-modify-write of `TMDS_Config` that sets
+  `Scrambling_Enable` and `TMDS_Bit_Clock_Ratio` and keeps every other bit as read.
+  `ReadModifyWriteError` says which transfer failed: `Read` (nothing written) or `Write`.
+- **`codec::decode_tmds_config` and `codec::update_tmds_config_byte`**, shared with
+  culvert-async.
+
 ### Changed
 
 - **The README names [spiritlevel](https://github.com/ashlar-display/spiritlevel)**, the

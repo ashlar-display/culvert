@@ -269,6 +269,10 @@ impl<T: ScdcTransport> Scdc<T> {
 
     // Scrambling
     pub fn write_tmds_config(&mut self, config: TmdsConfig) -> Result<(), ScdcError<T::Error>>;
+    pub fn read_tmds_config(&mut self) -> Result<TmdsConfigReading, ScdcError<T::Error>>;
+    /// Read-modify-write: the two bits from `config`, every other bit as read.
+    pub fn update_tmds_config(&mut self, config: TmdsConfig)
+        -> Result<(), ReadModifyWriteError<T::Error>>;
     pub fn read_scrambler_status(&mut self) -> Result<ScramblerStatus, ScdcError<T::Error>>;
 
     // FRL configuration
