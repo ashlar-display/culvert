@@ -25,7 +25,7 @@ plumbob = { optional = true, version = "0.4" }
 [dev-dependencies]
 hdmi-hal = { version = "0.6", default-features = false }
 
-# Prototype against hdmi-hal's unreleased breaking release (release order step 2): pushed
+# Prototype against hdmi-hal's unreleased breaking release: pushed
 # commits of hdmi-hal's feat/tmds-phy branch and of plumbob's feat/frl-phy, which builds on
 # it (the `plumbob` feature), moved by hand. Removed when they are released.
 [patch.crates-io]

@@ -338,9 +338,7 @@ caller.
 
 `Scdc<T>`'s methods only perform the reads and writes and hand the bytes to `codec`.
 `culvert-async`'s client does the same with `.await`, so the sync and async clients share
-one register map: an address or bit-layout fix in `codec` reaches both. The stack design
-document's "Sync and Async Companions" section records why the shared part lives in
-culvert.
+one register map: an address or bit-layout fix in `codec` reaches both.
 
 ---
 
