@@ -98,10 +98,12 @@ pub fn update_tmds_config_byte(byte: u8, config: TmdsConfig) -> u8 {
     (byte & !0x03) | encode_tmds_config(config)
 }
 
-/// Decodes `Scrambler_Status`: the sink confirms TMDS scrambling is active (bit 0).
+/// Decodes `Scrambler_Status`: the sink confirms TMDS scrambling is active (bit 0). The
+/// byte is kept as read.
 pub fn decode_scrambler_status(byte: u8) -> ScramblerStatus {
     ScramblerStatus {
         scrambling_active: byte & 0x01 != 0,
+        raw: byte,
     }
 }
 

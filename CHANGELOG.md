@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ReadModifyWriteError` says which transfer failed: `Read` (nothing written) or `Write`.
 - **`codec::decode_tmds_config` and `codec::update_tmds_config_byte`**, shared with
   culvert-async.
+- **`ScramblerStatus::raw`**: the `Scrambler_Status` byte as read, reserved bits included,
+  as `TmdsConfigReading::raw` is for `TMDS_Config`; `ScramblerStatus::new` sets it to the
+  byte holding the status bit alone. Additive: the struct is `#[non_exhaustive]`.
 
 ### Changed
 

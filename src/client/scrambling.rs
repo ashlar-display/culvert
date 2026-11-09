@@ -56,7 +56,8 @@ impl<T: ScdcTransport> Scdc<T> {
     /// Reads scrambler acknowledgement from `Scrambler_Status` (0x21).
     ///
     /// Returns [`ScramblerStatus::scrambling_active`] set when the sink confirms
-    /// that TMDS scrambling is active (bit 0).
+    /// that TMDS scrambling is active (bit 0), and the byte read
+    /// ([`ScramblerStatus::raw`]).
     pub fn read_scrambler_status(&mut self) -> Result<ScramblerStatus, ScdcError<T::Error>> {
         let byte = self
             .transport
@@ -191,7 +192,8 @@ mod tests {
         assert_eq!(
             Scdc::new(sim).read_scrambler_status().unwrap(),
             ScramblerStatus {
-                scrambling_active: true
+                scrambling_active: true,
+                raw: 0xFF,
             }
         );
     }
@@ -203,7 +205,8 @@ mod tests {
         assert_eq!(
             Scdc::new(sim).read_scrambler_status().unwrap(),
             ScramblerStatus {
-                scrambling_active: false
+                scrambling_active: false,
+                raw: 0xFE,
             }
         );
     }

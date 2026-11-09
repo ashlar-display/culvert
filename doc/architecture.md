@@ -354,6 +354,7 @@ pub struct TmdsConfig {
 
 pub struct ScramblerStatus {
     pub scrambling_active: bool,
+    pub raw: u8,                      // the byte as read
 }
 
 /// `Config_0` (0x30).
