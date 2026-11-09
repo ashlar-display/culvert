@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`ScdcError`, `ReadModifyWriteError` and `ProtocolError` are `Clone`, `Copy`,
+  `PartialEq` and `Eq`** where the transport's error is, and implement `Display` and
+  `core::error::Error`, with the transport's error as the `source` of a transport failure.
+  So results holding them can be kept, compared and printed, also without `alloc`.
 - **`Scdc::read_tmds_config`** reads `TMDS_Config` (0x20) and returns a
   `TmdsConfigReading`: the two bits `write_tmds_config` sets, and the whole byte, so a
   sink that sets reserved bits stays visible.
