@@ -27,3 +27,8 @@ path = "fuzz_targets/ced.rs"
 test = false
 doc = false
 bench = false
+
+# Prototype against hdmi-hal's unreleased breaking release (release order step 2), as in
+# the crate's own manifest: a pushed commit of its feat/tmds-phy branch, moved by hand.
+[patch.crates-io]
+hdmi-hal = { git = "https://github.com/ashlar-display/hdmi-hal", rev = "35131adfe65067620e004665f6e2a88a4dbd6fb9" }
