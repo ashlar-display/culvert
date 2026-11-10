@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`ScdcError`, `ReadModifyWriteError` and `ProtocolError` are `Clone`, `Copy`,
+  `PartialEq` and `Eq`** where the transport's error is, and implement `Display` and
+  `core::error::Error`, with the transport's error as the `source` of a transport failure.
+  So results holding them can be kept, compared and printed, also without `alloc`.
+- **`Scdc::read_tmds_config`** reads `TMDS_Config` (0x20) and returns a
+  `TmdsConfigReading`: the two bits `write_tmds_config` sets, and the whole byte, so a
+  sink that sets reserved bits stays visible.
+- **`Scdc::update_tmds_config`**: a read-modify-write of `TMDS_Config` that sets
+  `Scrambling_Enable` and `TMDS_Bit_Clock_Ratio` and keeps every other bit as read.
+  `ReadModifyWriteError` says which transfer failed: `Read` (nothing written) or `Write`;
+  exhaustive, since there is never a third transfer.
+- **`codec::decode_tmds_config` and `codec::update_tmds_config_byte`**, shared with
+  culvert-async.
+- **`ScramblerStatus::raw`**: the `Scrambler_Status` byte as read, reserved bits included,
+  as `TmdsConfigReading::raw` is for `TMDS_Config`; `ScramblerStatus::new` sets it to the
+  byte holding the status bit alone. Additive: the struct is `#[non_exhaustive]`.
+
 ### Changed
 
 - **The README names [spiritlevel](https://github.com/ashlar-display/spiritlevel)**, the
@@ -14,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (planned)"; the roadmap's `read_tmds_config` item names it too.
 - **The README's Ashlar block links the stack's crate list** instead of naming every crate,
   so it no longer goes stale on crates.io when a crate is added.
+
+### Internal
+
+- CI fails on `main`, and the publish workflow before anything is built, when `Cargo.toml`
+  has a `[patch]` section: `cargo package` drops it, so a release built with one would not
+  build from crates.io.
 
 ## [0.3.1] - 2026-11-03
 

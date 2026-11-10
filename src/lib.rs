@@ -21,11 +21,11 @@ mod error;
 mod register;
 
 pub use client::Scdc;
-pub use error::{ProtocolError, ScdcError};
+pub use error::{ProtocolError, ReadModifyWriteError, ScdcError};
 /// The transport `Scdc<T>` is generic over, re-exported from `hdmi-hal`.
 pub use hdmi_hal::scdc::ScdcTransport;
 pub use register::{
     CedCount, CedCounters, CedReading, CedWarning, ClearableUpdateFlags, Config0, FfeLevels,
     FrlConfig, FrlRate, HdmiLanes, LtpReq, LtpRequests, RsCorrectionCount, ScramblerStatus,
-    SourceTestConfig, StatusFlags, TmdsConfig, UpdateFlags,
+    SourceTestConfig, StatusFlags, TmdsConfig, TmdsConfigReading, UpdateFlags,
 };

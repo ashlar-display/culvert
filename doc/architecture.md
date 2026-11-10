@@ -269,6 +269,10 @@ impl<T: ScdcTransport> Scdc<T> {
 
     // Scrambling
     pub fn write_tmds_config(&mut self, config: TmdsConfig) -> Result<(), ScdcError<T::Error>>;
+    pub fn read_tmds_config(&mut self) -> Result<TmdsConfigReading, ScdcError<T::Error>>;
+    /// Read-modify-write: the two bits from `config`, every other bit as read.
+    pub fn update_tmds_config(&mut self, config: TmdsConfig)
+        -> Result<(), ReadModifyWriteError<T::Error>>;
     pub fn read_scrambler_status(&mut self) -> Result<ScramblerStatus, ScdcError<T::Error>>;
 
     // FRL configuration
@@ -334,9 +338,7 @@ caller.
 
 `Scdc<T>`'s methods only perform the reads and writes and hand the bytes to `codec`.
 `culvert-async`'s client does the same with `.await`, so the sync and async clients share
-one register map: an address or bit-layout fix in `codec` reaches both. The stack design
-document's "Sync and Async Companions" section records why the shared part lives in
-culvert.
+one register map: an address or bit-layout fix in `codec` reaches both.
 
 ---
 
@@ -350,6 +352,7 @@ pub struct TmdsConfig {
 
 pub struct ScramblerStatus {
     pub scrambling_active: bool,
+    pub raw: u8,                      // the byte as read
 }
 
 /// `Config_0` (0x30).
