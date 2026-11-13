@@ -77,6 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The docs give the coverage tolerance as 0.1 percentage points everywhere** (as CI
   checks it, not 0.1%), and `doc/setup.md` installs the cargo-msrv version CI pins
   (0.19.6).
+- **`CONTRIBUTING.md`'s publishing section names plumbob** (public through the `plumbob`
+  feature's `ScdcClient` implementation), and says when a dependency's breaking release is
+  one of culvert's: not when the version requirement keeps accepting the old release.
 
 ## [0.3.1] - 2026-11-03
 

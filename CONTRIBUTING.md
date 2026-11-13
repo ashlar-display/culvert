@@ -58,8 +58,11 @@ is fine.
 
 culvert builds on [hdmi-hal](https://github.com/ashlar-display/hdmi-hal) and
 [display-types](https://github.com/ashlar-display/display-types) and re-exports the types
-its API uses (`ScdcTransport`, `FrlRate`, `HdmiLanes`), so a breaking release of either is
-a breaking release of culvert. Other [Ashlar crates](https://ashlar-display.org/crates.html)
+its API uses (`ScdcTransport`, `FrlRate`, `HdmiLanes`); with the `plumbob` feature, its
+`Scdc` implements [plumbob](https://github.com/ashlar-display/plumbob)'s `ScdcClient`. Those
+crates' versions are therefore part of culvert's API: moving to a breaking release of one
+of them is a breaking release of culvert, unless the version requirement keeps accepting
+the old release as well (as culvert 0.3.1 did for display-types 0.5). Other [Ashlar crates](https://ashlar-display.org/crates.html)
 depend on culvert as a versioned crate dependency. Changes that add or modify public API
 must be merged, tagged, and published to crates.io before downstream crates can adopt
 them. The workflow is:
