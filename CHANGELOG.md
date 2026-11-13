@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **docs.rs marks the items that need the `plumbob` feature** with the `doc_cfg` badge,
+  enabled only in docs.rs builds.
+
 ### Changed
 
 - **The README names [spiritlevel](https://github.com/ashlar-display/spiritlevel)**, the
@@ -26,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The published `.crate` holds only what the crate needs**: `include` in `Cargo.toml`
   limits it to the sources, `doc/`, the README, changelog and license; it also shipped the
   CI workflows, Dependabot configuration, coverage baseline, tests and example.
+- **The documentation is built as docs.rs builds it, weekly**: `docs.yml` runs
+  `cargo doc --all-features` with nightly and `--cfg docsrs` (and `-D warnings`), so a
+  nightly change to the `doc_cfg` feature badges shows up before it breaks a docs.rs build.
 
 ## [0.3.1] - 2026-11-03
 

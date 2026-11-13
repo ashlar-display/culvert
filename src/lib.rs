@@ -12,6 +12,7 @@
 //! The register map itself — addresses and per-register encoding and decoding — is the
 //! I/O-free [`codec`] module, which `Scdc` and `culvert-async`'s client share.
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
