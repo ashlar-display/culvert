@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The IDE's project files are no longer tracked**: five `.idea/` files were committed
   before `.gitignore` listed the directory, and shipped in the published `.crate`.
+- **`.gitignore` covers the fuzzer's crash artifacts** (`fuzz/artifacts`), as it already did
+  its build and coverage output.
 
 ## [0.3.1] - 2026-11-03
 
