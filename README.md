@@ -32,6 +32,22 @@ cargo add culvert
 Wrap your transport in `Scdc` and call typed methods:
 
 ```rust
+# use core::convert::Infallible;
+# // A sink whose SCDC registers all read zero.
+# struct Registers([u8; 256]);
+# impl hdmi_hal::scdc::ScdcTransport for Registers {
+#     type Error = Infallible;
+#     fn read(&self, reg: u8) -> Result<u8, Infallible> { Ok(self.0[reg as usize]) }
+#     fn write(&mut self, reg: u8, value: u8) -> Result<(), Infallible> {
+#         self.0[reg as usize] = value;
+#         Ok(())
+#     }
+#     fn read_block(&self, reg: u8, buf: &mut [u8]) -> Result<(), Infallible> {
+#         hdmi_hal::scdc::read_block_bytewise(self, reg, buf)
+#     }
+# }
+# fn main() -> Result<(), culvert::ScdcError<Infallible>> {
+# let transport = Registers([0; 256]);
 use culvert::{Scdc, TmdsConfig, FrlConfig, FrlRate, FfeLevels, ClearableUpdateFlags};
 
 let mut scdc = Scdc::new(transport);
@@ -74,6 +90,8 @@ for warning in reading.iter_warnings() {
 if let Some(count) = reading.counters.lane0 {
     println!("lane 0 errors: {}", count.value());
 }
+# Ok(())
+# }
 ```
 
 To use culvert as the SCDC backend for `plumbob`'s link training state machine, enable

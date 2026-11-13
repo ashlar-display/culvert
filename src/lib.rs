@@ -29,3 +29,8 @@ pub use register::{
     FrlConfig, FrlRate, HdmiLanes, LtpReq, LtpRequests, RsCorrectionCount, ScramblerStatus,
     SourceTestConfig, StatusFlags, TmdsConfig, UpdateFlags,
 };
+
+// Compiles and runs the README's examples as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;

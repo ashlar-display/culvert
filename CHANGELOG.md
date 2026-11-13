@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before `.gitignore` listed the directory, and shipped in the published `.crate`.
 - **`.gitignore` covers the fuzzer's crash artifacts** (`fuzz/artifacts`), as it already did
   its build and coverage output.
+- **The README's Rust example runs as a doctest** (`ReadmeDoctests` in `lib.rs`, compiled
+  only for `cargo test`), against a hidden transport whose registers all read zero.
 
 ## [0.3.1] - 2026-11-03
 
