@@ -67,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `plumbob` feature, rustdoc with `-D warnings`, the example, the bare-metal builds and the
   MSRV), and has a publishing section on the crates culvert builds on and re-exports.
 - **The README's documentation list links `CONTRIBUTING.md`.**
+- **The publish workflow's `verify` job fails on a `[patch]` section** too, as `ci.yml`
+  does on `main`: the release does not wait for `main`'s CI.
 
 ## [0.3.1] - 2026-11-03
 
