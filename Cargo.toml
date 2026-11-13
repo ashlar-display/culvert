@@ -10,9 +10,11 @@ repository = "https://github.com/ashlar-display/culvert"
 homepage = "https://ashlar-display.org"
 keywords = ["ashlar", "hdmi", "no-std", "scdc", "frl"]
 categories = ["hardware-support", "embedded", "no-std", "no-std::no-alloc"]
+include = ["src/**", "doc/**", "README.md", "CHANGELOG.md", "LICENSE"]
 
 [package.metadata.docs.rs]
 all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 plumbob = ["dep:plumbob"]
@@ -24,3 +26,6 @@ plumbob = { optional = true, version = "0.4" }
 
 [dev-dependencies]
 hdmi-hal = { version = "0.6", default-features = false }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(docsrs)"] }

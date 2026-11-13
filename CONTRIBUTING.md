@@ -26,11 +26,17 @@ is fine.
 
 ## Coding standards
 
-- Run `cargo fmt` and `cargo clippy -- -D warnings` before pushing.
-- Public items need rustdoc comments (`cargo rustdoc -- -D missing_docs` must pass).
+- Run `cargo fmt` and `cargo clippy --all-targets -- -D warnings` before pushing; CI runs
+  clippy with and without the `plumbob` feature ([doc/setup.md](doc/setup.md) lists the
+  commands).
+- Public items need rustdoc comments, and intra-doc links must resolve
+  (`cargo rustdoc --all-features -- -D warnings` must pass).
 - Follow the existing patterns in the codebase — see [`doc/architecture.md`](doc/architecture.md)
   for the design principles behind them.
 - `#![forbid(unsafe_code)]` is enforced; no unsafe code.
+- A claim about HDMI behaviour (a rule, a default, a threshold, a register encoding) cites
+  at least two independent public implementations (repository, commit, file and line).
+  Where implementations differ, the behaviour is a setting with the majority as default.
 - Keep `no_std` compatibility. `Scdc<T>` and all output types must compile without `alloc`
   or `std`.
 
@@ -42,9 +48,28 @@ is fine.
 - Tests are expected for new register coverage. Pre-loading a `TestTransport` and
   asserting on the decoded struct is the established pattern; see the existing `client`
   modules for examples.
-- CI must be green before a PR can merge: fmt, clippy, docs, all test and build targets,
-  and coverage must not drop more than 0.1% below the baseline (stored in
-  `.coverage-baseline`). New register coverage without tests will likely trip this.
+- CI must be green before a PR can merge: fmt, clippy, docs, the tests with and without
+  the `plumbob` feature, the example, the bare-metal `no_std` builds, the same tests and
+  builds on the MSRV (Rust 1.85), and coverage must not drop more than 0.1 percentage points below the
+  baseline (stored in `.coverage-baseline`). New register coverage without tests will
+  likely trip this.
+
+## Publishing and downstream dependencies
+
+culvert builds on [hdmi-hal](https://github.com/ashlar-display/hdmi-hal) and
+[display-types](https://github.com/ashlar-display/display-types) and re-exports the types
+its API uses (`ScdcTransport`, `FrlRate`, `HdmiLanes`); with the `plumbob` feature, its
+`Scdc` implements [plumbob](https://github.com/ashlar-display/plumbob)'s `ScdcClient`. Those
+crates' versions are therefore part of culvert's API: moving to a breaking release of one
+of them is a breaking release of culvert, unless the version requirement keeps accepting
+the old release as well (as culvert 0.3.1 did for display-types 0.5). Other [Ashlar crates](https://ashlar-display.org/crates.html)
+depend on culvert as a versioned crate dependency. Changes that add or modify public API
+must be merged, tagged, and published to crates.io before downstream crates can adopt
+them. The workflow is:
+
+1. Merge and tag a release in this repo (`vX.Y.Z`).
+2. The publish CI workflow uploads the new version to crates.io.
+3. Update the version constraint in the downstream crate's `Cargo.toml`.
 
 ## Review process
 
