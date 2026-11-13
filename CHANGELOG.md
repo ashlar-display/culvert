@@ -66,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`CONTRIBUTING.md` matches the CI checks** (clippy over all targets with and without the
   `plumbob` feature, rustdoc with `-D warnings`, the example, the bare-metal builds and the
   MSRV), and has a publishing section on the crates culvert builds on and re-exports.
+- **The README's documentation list links `CONTRIBUTING.md`.**
 
 ## [0.3.1] - 2026-11-03
 

@@ -182,6 +182,8 @@ feature, so culvert gains no dependency on it.
 - [`doc/architecture.md`](doc/architecture.md) — role, scope, register map, type
   reference, design principles, and the culvert / link training boundary
 - [`doc/roadmap.md`](doc/roadmap.md) — SCDC registers deferred to future releases
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to contribute, and how releases reach the
+  crates that depend on culvert
 
 ## Verifying releases
 
