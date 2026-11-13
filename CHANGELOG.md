@@ -82,6 +82,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one of culvert's: not when the version requirement keeps accepting the old release.
 - **`doc/architecture.md` explains the separate clear type as it is**, without the date and
   the development history it carried.
+- **The MSRV job shows why it failed**: `cargo msrv verify` runs without
+  `--output-format minimal`, which printed only `true` or `false` and dropped the compiler
+  error.
 
 ## [0.3.1] - 2026-11-03
 
