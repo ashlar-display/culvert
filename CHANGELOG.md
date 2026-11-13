@@ -80,6 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`CONTRIBUTING.md`'s publishing section names plumbob** (public through the `plumbob`
   feature's `ScdcClient` implementation), and says when a dependency's breaking release is
   one of culvert's: not when the version requirement keeps accepting the old release.
+- **`doc/architecture.md` explains the separate clear type as it is**, without the date and
+  the development history it carried.
 
 ## [0.3.1] - 2026-11-03
 
