@@ -130,7 +130,7 @@ runs against its simulated transport.
 
 CI measures line coverage with `cargo-llvm-cov`, over the default features and the
 `plumbob` feature merged into one report. The baseline is stored in
-`.coverage-baseline` (currently 100%); CI fails if coverage drops more than 0.1% below
+`.coverage-baseline` (currently 100%); CI fails if coverage drops more than 0.1 percentage points below
 it. New register coverage without tests will trip this.
 
 ## Philosophy
