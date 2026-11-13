@@ -14,8 +14,9 @@ cargo build
 
 ```sh
 cargo fmt --check
-cargo clippy --all-features -- -D warnings
-cargo rustdoc --all-features -- -D missing_docs
+cargo clippy --all-targets -- -D warnings
+cargo clippy --all-targets --features plumbob -- -D warnings
+cargo rustdoc --all-features -- -D warnings
 ```
 
 ## Running tests
@@ -23,6 +24,35 @@ cargo rustdoc --all-features -- -D missing_docs
 ```sh
 cargo test                      # default features
 cargo test --features plumbob   # with the plumbob::ScdcClient impl and end-to-end tests
+```
+
+The README's example runs as a doctest with the others.
+
+## `no_std` builds
+
+The crate is `no_std` without `alloc`. CI checks it on a bare target, which has no `std`
+for a dependency to pull in:
+
+```sh
+rustup target add thumbv7em-none-eabi
+cargo build --target thumbv7em-none-eabi
+cargo build --features plumbob --target thumbv7em-none-eabi
+```
+
+## Checking the MSRV
+
+The MSRV is `rust-version` in `Cargo.toml`. CI checks it with
+[`cargo-msrv`](https://github.com/foresterre/cargo-msrv), which runs the checks on that
+toolchain:
+
+```sh
+cargo install cargo-msrv --locked
+cargo msrv verify -- cargo test --locked
+cargo msrv verify -- cargo test --locked --features plumbob
+cargo msrv verify --target thumbv7em-none-eabi \
+  -- cargo build --locked --no-default-features --target thumbv7em-none-eabi
+cargo msrv verify --target thumbv7em-none-eabi \
+  -- cargo build --locked --no-default-features --features plumbob --target thumbv7em-none-eabi
 ```
 
 ## Measuring coverage
