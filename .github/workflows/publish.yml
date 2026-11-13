@@ -100,6 +100,10 @@ jobs:
       - name: Test (plumbob feature)
         run: cargo test --locked --features plumbob
 
+      # It drives a simulated transport, so it runs here.
+      - name: Run the example
+        run: cargo run --locked --example scdc
+
       - name: Build (no_std)
         run: cargo build --locked --no-default-features --target thumbv7em-none-eabi
 
