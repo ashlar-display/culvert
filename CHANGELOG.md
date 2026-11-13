@@ -56,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `target/` built by an older Rust is not restored: `cargo llvm-cov clean --workspace`
   leaves its instrumented binaries behind, and the report would count their lines as
   uncovered (it did so in other Ashlar crates after the update to Rust 1.100).
+- **The fuzz workflow runs with a read-only token by default**, and its fuzz job without
+  the checkout's git credentials; the corpus job keeps both, to push its PR.
 
 ## [0.3.1] - 2026-11-03
 
