@@ -34,9 +34,12 @@ acknowledgement, timeout, busy, unsupported, detached, other). culvert follows:
 culvert writes `TMDS_Config` (`write_tmds_config`) but cannot read it back. The TMDS
 bring-up crate, [spiritlevel](https://github.com/ashlar-display/spiritlevel), plans a check,
 after a reconnect, whether the sink still holds the configuration the link needs, which
-takes a read: an additive `read_tmds_config`, with a
-`TMDS_Config` decoder in `codec` that also serves register dumps (see "Read-back decoders"
-below).
+takes a read: an additive `read_tmds_config`, returning the decoded bits and the whole
+byte, with a `TMDS_Config` decoder in `codec` that also serves register dumps (see
+"Read-back decoders" below). With it, `update_tmds_config`: a read-modify-write that sets
+the two bits and keeps the others as read, saying which of its two transfers failed. Both
+are on the development branch, built against hdmi-hal's next breaking release, and ship
+in the release that follows it.
 
 ---
 

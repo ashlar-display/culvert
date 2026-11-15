@@ -11,7 +11,8 @@ use core::convert::Infallible;
 
 use culvert::{Scdc, ScdcError};
 use display_types::cea861::hdmi_forum::HdmiForumFrl;
-use hdmi_hal::phy::{EqParams, FrlOutput, HdmiPhy, LanePatterns, LtpPattern};
+use hdmi_hal::ddc::{DdcError, DdcErrorKind, NoAcknowledgeSource};
+use hdmi_hal::phy::{EqParams, FrlOutput, FrlPhy, LanePatterns, LtpPattern};
 use hdmi_hal::scdc::{ScdcTransport, read_block_bytewise};
 use plumbob::{
     FallbackReason, FfeLevels, FrlTrainer, TmdsExit, TrainingConfig, TrainingError, TrainingEvent,
@@ -147,6 +148,12 @@ struct SinkTransport(RefCell<Sink>);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Nack;
 
+impl DdcError for Nack {
+    fn kind(&self) -> DdcErrorKind {
+        DdcErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown)
+    }
+}
+
 impl ScdcTransport for SinkTransport {
     type Error = Nack;
 
@@ -180,7 +187,7 @@ struct Phy {
     output: Vec<FrlOutput>,
 }
 
-impl HdmiPhy for Phy {
+impl FrlPhy for Phy {
     type Error = Infallible;
 
     fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Infallible> {
@@ -200,10 +207,6 @@ impl HdmiPhy for Phy {
 
     fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Infallible> {
         self.eq.push(params);
-        Ok(())
-    }
-
-    fn set_scrambling(&mut self, _enabled: bool) -> Result<(), Infallible> {
         Ok(())
     }
 }

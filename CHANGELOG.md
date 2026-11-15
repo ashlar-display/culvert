@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`ScdcError`, `ReadModifyWriteError` and `ProtocolError` are `Clone`, `Copy`,
+  `PartialEq` and `Eq`** where the transport's error is, and implement `Display` and
+  `core::error::Error`, with the transport's error as the `source` of a transport failure.
+  So results holding them can be kept, compared and printed, also without `alloc`.
+- **`Scdc::read_tmds_config`** reads `TMDS_Config` (0x20) and returns a
+  `TmdsConfigReading`: the two bits `write_tmds_config` sets, and the whole byte, so a
+  sink that sets reserved bits stays visible.
+- **`Scdc::update_tmds_config`**: a read-modify-write of `TMDS_Config` that sets
+  `Scrambling_Enable` and `TMDS_Bit_Clock_Ratio` and keeps every other bit as read.
+  `ReadModifyWriteError` says which transfer failed: `Read` (nothing written) or `Write`;
+  exhaustive, since there is never a third transfer.
+- **`codec::decode_tmds_config` and `codec::update_tmds_config_byte`**, shared with
+  culvert-async.
+- **`ScramblerStatus::raw`**: the `Scrambler_Status` byte as read, reserved bits included,
+  as `TmdsConfigReading::raw` is for `TMDS_Config`; `ScramblerStatus::new` sets it to the
+  byte holding the status bit alone. Additive: the struct is `#[non_exhaustive]`.
 - **docs.rs marks the items that need the `plumbob` feature** with the `doc_cfg` badge,
   enabled only in docs.rs builds.
 
@@ -22,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- CI fails on `main`, and the publish workflow before anything is built, when `Cargo.toml`
+  has a `[patch]` section: `cargo package` drops it, so a release built with one would not
+  build from crates.io.
 - **The IDE's project files are no longer tracked**: five `.idea/` files were committed
   before `.gitignore` listed the directory, and shipped in the published `.crate`.
 - **`.gitignore` covers the fuzzer's crash artifacts** (`fuzz/artifacts`), as it already did
