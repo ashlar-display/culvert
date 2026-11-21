@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- **Requires hdmi-hal 0.7**, its breaking release. The re-exported `ScdcTransport` is 0.7's,
+  whose `Error` is bounded by `DdcError`: a transport's error type implements
+  `DdcError::kind` (hdmi-hal implements it for `Infallible`, `()` and `DdcErrorKind`).
+- **The `plumbob` feature requires plumbob's breaking release on hdmi-hal 0.7**, whose PHY
+  trait is `FrlPhy`.
+
 ### Added
 
 - **`ScdcError`, `ReadModifyWriteError` and `ProtocolError` are `Clone`, `Copy`,

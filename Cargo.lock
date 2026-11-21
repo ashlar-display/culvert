@@ -28,8 +28,9 @@ dependencies = [
 
 [[package]]
 name = "hdmi-hal"
-version = "0.6.1"
-source = "git+https://github.com/ashlar-display/hdmi-hal?rev=35131adfe65067620e004665f6e2a88a4dbd6fb9#35131adfe65067620e004665f6e2a88a4dbd6fb9"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f6f586de7562829805e036c9d35d5ccc67949933c6112240c03fbb6e30e0f09"
 dependencies = [
  "display-types",
 ]
@@ -37,7 +38,7 @@ dependencies = [
 [[package]]
 name = "plumbob"
 version = "0.4.1"
-source = "git+https://github.com/ashlar-display/plumbob?rev=51419512bced9d6eb37eebe63ed5e61779c59e1d#51419512bced9d6eb37eebe63ed5e61779c59e1d"
+source = "git+https://github.com/ashlar-display/plumbob?rev=2e244830b850eb27167e58d00b4814ac4fc0e1af#2e244830b850eb27167e58d00b4814ac4fc0e1af"
 dependencies = [
  "display-types",
  "hdmi-hal",
