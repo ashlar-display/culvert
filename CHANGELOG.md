@@ -12,8 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Requires hdmi-hal 0.7**, its breaking release. The re-exported `ScdcTransport` is 0.7's,
   whose `Error` is bounded by `DdcError`: a transport's error type implements
   `DdcError::kind` (hdmi-hal implements it for `Infallible`, `()` and `DdcErrorKind`).
-- **The `plumbob` feature requires plumbob's breaking release on hdmi-hal 0.7**, whose PHY
-  trait is `FrlPhy`.
+- **The `plumbob` feature requires plumbob 0.5**, on hdmi-hal 0.7, whose PHY trait is
+  `FrlPhy`.
 
 ### Added
 
@@ -46,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **The `plumbob` feature's end-to-end tests run against maquette's simulated sink**
+  (`tests/plumbob.rs`, a dev-dependency on maquette) instead of a hand-written one: the sink
+  trains as the public receivers do, and the PHY's patterns and equalization reach it on the
+  line.
 - CI fails on `main`, and the publish workflow before anything is built, when `Cargo.toml`
   has a `[patch]` section: `cargo package` drops it, so a release built with one would not
   build from crates.io.

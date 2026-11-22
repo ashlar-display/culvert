@@ -22,16 +22,11 @@ plumbob = ["dep:plumbob"]
 [dependencies]
 display-types = { version = ">=0.4.3, <0.6", default-features = false }
 hdmi-hal = { version = "0.7", default-features = false }
-plumbob = { optional = true, version = "0.4" }
+plumbob = { optional = true, version = "0.5" }
 
 [dev-dependencies]
 hdmi-hal = { version = "0.7", default-features = false }
+maquette = { version = "0.1", features = ["std"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(docsrs)"] }
-
-# Prototype against plumbob's unreleased breaking release (the `plumbob` feature): a pushed
-# commit of its feat/frl-phy branch, on hdmi-hal 0.7, moved by hand. Removed when it is
-# released.
-[patch.crates-io]
-plumbob = { git = "https://github.com/ashlar-display/plumbob", rev = "2e244830b850eb27167e58d00b4814ac4fc0e1af" }

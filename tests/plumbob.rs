@@ -1,19 +1,22 @@
-//! End-to-end tests for the `plumbob` feature: plumbob's link training state machine
-//! trains through `Scdc<T>` against a sink simulated at the SCDC register level.
+//! End-to-end tests for the `plumbob` feature: plumbob's link training through `Scdc<T>`,
+//! against maquette's simulated FRL sink and PHY.
 //!
-//! The sink reacts to the registers the way a real one does, so these tests check the
-//! whole chain — plumbob's sequencing, culvert's encoding and decoding, and the register
-//! bits in between.
+//! The sink trains as the public receivers do, and the PHY's patterns and equalization reach
+//! it on the line, so these tests check the whole chain: plumbob's sequencing, culvert's
+//! encoding and decoding, and the register bits in between. Only what a sink does not do by
+//! itself (undefined requests, a retrain it starts) is scripted, with scheduled presets or
+//! the SCDC hook.
 #![cfg(feature = "plumbob")]
 
-use core::cell::RefCell;
-use core::convert::Infallible;
+use core::time::Duration;
 
-use culvert::{Scdc, ScdcError};
-use display_types::cea861::hdmi_forum::HdmiForumFrl;
-use hdmi_hal::ddc::{DdcError, DdcErrorKind, NoAcknowledgeSource};
-use hdmi_hal::phy::{EqParams, FrlOutput, FrlPhy, LanePatterns, LtpPattern};
-use hdmi_hal::scdc::{ScdcTransport, read_block_bytewise};
+use culvert::ScdcError;
+use hdmi_hal::scdc::ScdcOverDdc;
+use maquette::{
+    Action, Actor, Bench, Ddc, DdcErrorKind, Effect, Env, Event, Fault, Filter, HdmiForumFrl,
+    LaneLimits, LanePatterns, LinkLanes, LtpPattern, NoAcknowledgeSource, OpKind, Phy, PhyCall,
+    ScdcHook, ScdcRegisters, SinkConfig, TxFfeLevel, When,
+};
 use plumbob::{
     FallbackReason, FfeLevels, FrlTrainer, TmdsExit, TrainingConfig, TrainingError, TrainingEvent,
     TrainingOutcome, TrainingWarning,
@@ -24,234 +27,146 @@ const CONFIG_0: u8 = 0x30;
 const CONFIG_1: u8 = 0x31;
 const SOURCE_TEST_CONFIG: u8 = 0x35;
 const STATUS_FLAGS_0: u8 = 0x40;
-const STATUS_FLAGS_1: u8 = 0x41;
-const STATUS_FLAGS_2: u8 = 0x42;
+const LTP_REQ_01: u8 = 0x41;
+const LTP_REQ_23: u8 = 0x42;
 
 const SOURCE_TEST_UPDATE: u8 = 0x08;
 const FRL_START: u8 = 0x10;
 const FLT_UPDATE: u8 = 0x20;
 const FLT_READY: u8 = 0x40;
 
-// ── simulated sink ────────────────────────────────────────────────────────────
-
-/// One set of LTS:3 requests: the four lane nibbles, posted with `FLT_update` after
-/// `after_polls` reads of `Update_0`.
-struct Round {
-    after_polls: u32,
-    lanes: [u8; 4],
-}
-
-struct Sink {
-    regs: [u8; 256],
-    flt_ready_after: Option<u32>,
-    flt_ready_polls: u32,
-    rounds: Vec<Round>,
-    next_round: usize,
-    frl_start_after: Option<u32>,
-    /// Raises `FRL_start` together with `FLT_update` when this round is posted.
-    frl_start_with_round: Option<usize>,
-    /// Training runs while `Config_1` holds an FRL rate.
-    configured: bool,
-    update_polls: u32,
-    /// Every value written to `Config_1`, in order.
-    config_1_writes: Vec<u8>,
-    /// The next read of this register fails (a DDC NACK), once.
-    nack_read_of: Option<u8>,
-}
-
-impl Sink {
-    fn new() -> Self {
-        Self {
-            regs: [0; 256],
-            flt_ready_after: None,
-            flt_ready_polls: 0,
-            rounds: Vec::new(),
-            next_round: 0,
-            frl_start_after: None,
-            frl_start_with_round: None,
-            configured: false,
-            update_polls: 0,
-            config_1_writes: Vec::new(),
-            nack_read_of: None,
-        }
-    }
-
-    fn read(&mut self, reg: u8) -> u8 {
-        match reg {
-            STATUS_FLAGS_0 => {
-                if self
-                    .flt_ready_after
-                    .is_some_and(|n| self.flt_ready_polls >= n)
-                {
-                    self.regs[STATUS_FLAGS_0 as usize] |= FLT_READY;
-                }
-                self.flt_ready_polls += 1;
-            }
-            UPDATE_0 if self.configured => self.poll_update_0(),
-            _ => {}
-        }
-        self.regs[reg as usize]
-    }
-
-    /// Posts the next round's requests, or `FRL_start` once the rounds are used up.
-    fn poll_update_0(&mut self) {
-        let update_0 = self.regs[UPDATE_0 as usize];
-        match self.rounds.get(self.next_round) {
-            Some(round) if update_0 & FLT_UPDATE == 0 && self.update_polls >= round.after_polls => {
-                let [l0, l1, l2, l3] = round.lanes;
-                self.regs[STATUS_FLAGS_1 as usize] = l0 | (l1 << 4);
-                self.regs[STATUS_FLAGS_2 as usize] = l2 | (l3 << 4);
-                self.regs[UPDATE_0 as usize] |= FLT_UPDATE;
-                if self.frl_start_with_round == Some(self.next_round) {
-                    self.regs[UPDATE_0 as usize] |= FRL_START;
-                }
-            }
-            None if self.frl_start_after.is_some_and(|n| self.update_polls >= n) => {
-                self.regs[UPDATE_0 as usize] |= FRL_START;
-            }
-            _ => {}
-        }
-        self.update_polls += 1;
-    }
-
-    fn write(&mut self, reg: u8, value: u8) {
-        match reg {
-            // Update_0 is write-1-to-clear.
-            UPDATE_0 => {
-                let set = self.regs[UPDATE_0 as usize];
-                if value & set & FLT_UPDATE != 0 {
-                    self.next_round += 1;
-                    self.update_polls = 0;
-                }
-                if value & set & FRL_START != 0 && self.next_round >= self.rounds.len() {
-                    // FRL_start is set once; one raised with a round does not use it up.
-                    self.frl_start_after = None;
-                }
-                self.regs[UPDATE_0 as usize] = set & !value;
-            }
-            CONFIG_1 => {
-                self.config_1_writes.push(value);
-                self.configured = value & 0x0F != 0;
-                self.update_polls = 0;
-                self.regs[CONFIG_1 as usize] = value;
-            }
-            _ => self.regs[reg as usize] = value,
-        }
-    }
-}
-
-/// The sink behind an `ScdcTransport`. `read` takes `&self`, so the sink's state is in a
-/// `RefCell`.
-struct SinkTransport(RefCell<Sink>);
-
-/// A DDC NACK.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Nack;
-
-impl DdcError for Nack {
-    fn kind(&self) -> DdcErrorKind {
-        DdcErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown)
-    }
-}
-
-impl ScdcTransport for SinkTransport {
-    type Error = Nack;
-
-    fn read(&self, reg: u8) -> Result<u8, Nack> {
-        let mut sink = self.0.borrow_mut();
-        if sink.nack_read_of == Some(reg) {
-            sink.nack_read_of = None;
-            return Err(Nack);
-        }
-        Ok(sink.read(reg))
-    }
-
-    fn write(&mut self, reg: u8, value: u8) -> Result<(), Nack> {
-        self.0.get_mut().write(reg, value);
-        Ok(())
-    }
-
-    fn read_block(&self, reg: u8, buf: &mut [u8]) -> Result<(), Nack> {
-        // One `read` per byte, as the scripted sink answers each register on its own.
-        read_block_bytewise(self, reg, buf)
-    }
-}
-
-// ── recording PHY ─────────────────────────────────────────────────────────────
-
-#[derive(Default)]
-struct Phy {
-    rates: Vec<HdmiForumFrl>,
-    patterns: Vec<LanePatterns>,
-    eq: Vec<EqParams>,
-    output: Vec<FrlOutput>,
-}
-
-impl FrlPhy for Phy {
-    type Error = Infallible;
-
-    fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Infallible> {
-        self.rates.push(rate);
-        Ok(())
-    }
-
-    fn send_ltp(&mut self, patterns: LanePatterns) -> Result<(), Infallible> {
-        self.patterns.push(patterns);
-        Ok(())
-    }
-
-    fn set_frl_output(&mut self, output: FrlOutput) -> Result<(), Infallible> {
-        self.output.push(output);
-        Ok(())
-    }
-
-    fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Infallible> {
-        self.eq.push(params);
-        Ok(())
-    }
-}
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
 const R12: HdmiForumFrl = HdmiForumFrl::Rate12Gbps4Lanes;
 const R10: HdmiForumFrl = HdmiForumFrl::Rate10Gbps4Lanes;
 
-fn round(after_polls: u32, lanes: [u8; 4]) -> Round {
-    Round { after_polls, lanes }
+/// An FRL sink taking up to 12 Gbps at 4 lanes.
+const FRL_SINK: SinkConfig = SinkConfig::new().with_max_frl_rate(Some(R12));
+
+type Trainer<'b> = FrlTrainer<culvert::Scdc<ScdcOverDdc<Ddc<'b>>>, Phy<'b>>;
+
+/// plumbob's trainer over culvert's client over the bench's bus, and the bench's PHY.
+fn trainer<'b>(bench: &'b Bench<'_>) -> Trainer<'b> {
+    let scdc =
+        culvert::Scdc::new(ScdcOverDdc::new(bench.ddc()).expect("the bench's bus serves SCDC"));
+    FrlTrainer::new(scdc, bench.phy())
 }
 
+/// FFE levels 3, as culvert's tests trained. plumbob counts polls, not time: at the bench's
+/// 90 µs a byte, its default 100 LTS:3 polls last about 36 ms, less than the sink's first
+/// TxFFE attempt (45 ms at three levels), so tests that wait for the sink's own timeouts
+/// poll longer.
 fn ffe_3() -> TrainingConfig {
     let mut config = TrainingConfig::default();
     config.ffe_levels = FfeLevels::new(3).unwrap();
     config
 }
 
-fn train(
-    sink: Sink,
-    rates: &[HdmiForumFrl],
-    config: &TrainingConfig,
-) -> (TrainingOutcome, Sink, Phy) {
-    let mut trainer = FrlTrainer::new(Scdc::new(SinkTransport(RefCell::new(sink))), Phy::default());
-    let outcome = trainer.train(rates, config).unwrap().outcome;
-    let (scdc, phy) = trainer.into_parts();
-    (outcome, scdc.into_transport().0.into_inner(), phy)
+/// Trains `rates` on `bench`, and returns the outcome.
+fn train(bench: &Bench<'_>, rates: &[HdmiForumFrl], config: &TrainingConfig) -> TrainingOutcome {
+    trainer(bench).train(rates, config).unwrap().outcome
 }
 
-// ── tests ─────────────────────────────────────────────────────────────────────
+/// Every value the source wrote to `Config_1`, in order.
+fn config_1_writes(bench: &Bench<'_>) -> Vec<u8> {
+    bench
+        .transcript()
+        .filter_map(|record| match record.event {
+            Event::Register {
+                reg: CONFIG_1,
+                to,
+                by: Actor::Source,
+                ..
+            } => Some(to),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The PHY calls that succeeded, in order.
+fn phy_calls(bench: &Bench<'_>) -> Vec<PhyCall> {
+    bench
+        .transcript()
+        .filter_map(|record| match record.event {
+            Event::Phy {
+                call,
+                result: Ok(()),
+                ..
+            } => Some(call),
+            _ => None,
+        })
+        .collect()
+}
+
+fn rates(bench: &Bench<'_>) -> Vec<HdmiForumFrl> {
+    phy_calls(bench)
+        .into_iter()
+        .filter_map(|call| match call {
+            PhyCall::SetFrlRate(rate) => Some(rate),
+            _ => None,
+        })
+        .collect()
+}
+
+fn patterns(bench: &Bench<'_>) -> Vec<LanePatterns> {
+    phy_calls(bench)
+        .into_iter()
+        .filter_map(|call| match call {
+            PhyCall::SendLtp(patterns) => Some(patterns),
+            _ => None,
+        })
+        .collect()
+}
+
+fn reg(bench: &Bench<'_>, reg: u8) -> u8 {
+    bench.sink().scdc(reg).unwrap()
+}
+
+fn same(pattern: LtpPattern) -> LanePatterns {
+    LanePatterns {
+        lane0: Some(pattern),
+        lane1: Some(pattern),
+        lane2: Some(pattern),
+        lane3: Some(pattern),
+    }
+}
+
+/// The source's writes to `Update_0`, which clear the flags it saw. plumbob writes it once
+/// before training, after taking the requests (it sends the patterns first), and after the
+/// pass: a retrain the sink starts comes after the third write, and its pass after the
+/// fourth, once plumbob has taken the retrain's requests.
+fn update_0_writes() -> Filter {
+    Filter::ANY
+        .with_addr(0x54)
+        .with_op(OpKind::Write)
+        .with_first(UPDATE_0)
+}
+
+/// Schedules the sink to post `requests` (lanes 0–1, lanes 2–3) and `update_0` when `when`
+/// comes: a sink's step it does not take by itself.
+fn post_at(bench: &Bench<'_>, when: When, requests: [u8; 2], update_0: u8) {
+    for (reg, value) in [
+        (LTP_REQ_01, requests[0]),
+        (LTP_REQ_23, requests[1]),
+        (UPDATE_0, update_0),
+    ] {
+        bench
+            .schedule_action(Action::Preset { reg, value }, when)
+            .unwrap();
+    }
+}
 
 #[test]
 fn trains_through_scdc() {
-    let mut sink = Sink::new();
-    sink.regs[CONFIG_0 as usize] = 0xFF;
-    sink.flt_ready_after = Some(2);
-    sink.rounds = vec![
-        round(1, [0x5, 0x6, 0x7, 0x8]), // LFSR 0–3, one per lane
-        round(0, [0x0, 0xE, 0x0, 0x0]), // raise lane 1's TxFFE level
-        round(2, [0x0, 0x0, 0x0, 0x0]), // every lane passes
-    ];
-    sink.frl_start_after = Some(1);
+    let bench = Bench::new(FRL_SINK, &[]).unwrap();
+    bench.preset_scdc(CONFIG_0, 0xFF);
+    // Lane 1 needs TxFFE level 1: the sink asks for it once its first attempt runs out.
+    bench.set_lane_limits(LinkLanes {
+        lane1: LaneLimits::NONE.with_min_tx_ffe(TxFfeLevel::new(1).unwrap()),
+        ..LinkLanes::NONE
+    });
+    let mut config = ffe_3();
+    config.ltp_polls = 1_000;
 
-    let (outcome, sink, phy) = train(sink, &[R12], &ffe_3());
+    let outcome = train(&bench, &[R12], &config);
 
     assert!(matches!(
         outcome,
@@ -261,39 +176,40 @@ fn trains_through_scdc() {
         }
     ));
     // Config_0 cleared; Config_1 = 12 Gbps (6) with FFE levels 3 in bits 7:4.
-    assert_eq!(sink.regs[CONFIG_0 as usize], 0x00);
-    assert_eq!(sink.config_1_writes, [0x36]);
+    assert_eq!(reg(&bench, CONFIG_0), 0x00);
+    assert_eq!(config_1_writes(&bench), [0x36]);
     // Every flag plumbob serviced was cleared.
-    assert_eq!(sink.regs[UPDATE_0 as usize], 0x00);
-
-    assert_eq!(phy.rates, [R12]);
     assert_eq!(
-        phy.patterns[2],
-        LanePatterns {
-            lane0: Some(LtpPattern::Lfsr0),
-            lane1: Some(LtpPattern::Lfsr1),
-            lane2: Some(LtpPattern::Lfsr2),
-            lane3: Some(LtpPattern::Lfsr3),
-        }
+        reg(&bench, UPDATE_0) & (FRL_START | FLT_UPDATE | SOURCE_TEST_UPDATE),
+        0
     );
-    let raised = phy.eq.last().unwrap();
+    assert_eq!(rates(&bench), [R12]);
+    assert!(patterns(&bench).contains(&LanePatterns {
+        lane0: Some(LtpPattern::Lfsr0),
+        lane1: Some(LtpPattern::Lfsr1),
+        lane2: Some(LtpPattern::Lfsr2),
+        lane3: Some(LtpPattern::Lfsr3),
+    }));
+    let raised = phy_calls(&bench)
+        .into_iter()
+        .rev()
+        .find_map(|call| match call {
+            PhyCall::AdjustEqualization(eq) => Some(eq),
+            _ => None,
+        })
+        .unwrap();
     assert_eq!(raised.lane1.tx_ffe_level.value(), 1);
     assert_eq!(raised.lane0.tx_ffe_level.value(), 0);
-    assert_eq!(phy.output.last(), Some(&FrlOutput::GapOnly));
+    // The sink trained: its lanes are locked, FRL_start came from it.
+    assert_eq!(reg(&bench, STATUS_FLAGS_0) & 0x1E, 0x1E);
 }
 
 #[test]
 fn steps_down_when_the_sink_asks_for_a_lower_rate() {
-    let mut sink = Sink::new();
-    sink.flt_ready_after = Some(0);
-    sink.rounds = vec![
-        round(0, [0xF; 4]), // every lane asks for a lower rate
-        round(3, [0x5; 4]),
-        round(1, [0x0; 4]),
-    ];
-    sink.frl_start_after = Some(0);
+    // A sink taking 10 Gbps at most: every lane asks for a lower rate at 12.
+    let bench = Bench::new(SinkConfig::new().with_max_frl_rate(Some(R10)), &[]).unwrap();
 
-    let (outcome, sink, phy) = train(sink, &[R12, R10], &ffe_3());
+    let outcome = train(&bench, &[R12, R10], &ffe_3());
 
     assert!(matches!(
         outcome,
@@ -303,19 +219,21 @@ fn steps_down_when_the_sink_asks_for_a_lower_rate() {
         }
     ));
     // Config_1: 12 Gbps (6), then 10 Gbps (5), both with FFE levels 3.
-    assert_eq!(sink.config_1_writes, [0x36, 0x35]);
-    assert_eq!(phy.rates, [R12, R10]);
+    assert_eq!(config_1_writes(&bench), [0x36, 0x35]);
+    assert_eq!(rates(&bench), [R12, R10]);
 }
 
 #[test]
 fn a_timeout_returns_the_sink_to_tmds() {
-    let mut sink = Sink::new();
-    sink.flt_ready_after = Some(0);
-    // The sink never posts requests: LTS:3 times out.
+    // Lanes that never pass, on a sink that never gives up: plumbob's LTS:3 times out.
+    let bench = Bench::new(FRL_SINK.with_lts3_timeout(None), &[]).unwrap();
+    bench.set_lane_limits(LinkLanes::all(
+        LaneLimits::NONE.with_min_tx_ffe(TxFfeLevel::MAX),
+    ));
     let mut config = ffe_3();
     config.ltp_polls = 5;
 
-    let (outcome, sink, phy) = train(sink, &[R12], &config);
+    let outcome = train(&bench, &[R12], &config);
 
     assert!(matches!(
         outcome,
@@ -325,17 +243,15 @@ fn a_timeout_returns_the_sink_to_tmds() {
         }
     ));
     // Config_1 written with 12 Gbps, then with FRL off.
-    assert_eq!(sink.config_1_writes, [0x36, 0x00]);
-    assert_eq!(phy.rates, [R12, HdmiForumFrl::NotSupported]);
+    assert_eq!(config_1_writes(&bench), [0x36, 0x00]);
+    assert_eq!(rates(&bench), [R12, HdmiForumFrl::NotSupported]);
 }
 
 #[test]
 fn rates_exhausted_clears_the_pending_flt_update() {
-    let mut sink = Sink::new();
-    sink.flt_ready_after = Some(0);
-    sink.rounds = vec![round(0, [0xF; 4])];
+    let bench = Bench::new(SinkConfig::new().with_max_frl_rate(Some(R10)), &[]).unwrap();
 
-    let (outcome, sink, _) = train(sink, &[R12], &ffe_3());
+    let outcome = train(&bench, &[R12], &ffe_3());
 
     assert!(matches!(
         outcome,
@@ -344,23 +260,34 @@ fn rates_exhausted_clears_the_pending_flt_update() {
             ..
         }
     ));
-    assert_eq!(sink.config_1_writes, [0x36, 0x00]);
-    assert_eq!(sink.regs[UPDATE_0 as usize] & FLT_UPDATE, 0);
+    assert_eq!(config_1_writes(&bench), [0x36, 0x00]);
+    assert_eq!(reg(&bench, UPDATE_0) & FLT_UPDATE, 0);
 }
 
 #[test]
 fn flt_no_timeout_from_source_test_configuration() {
-    let mut sink = Sink::new();
+    let bench = Bench::new(FRL_SINK, &[]).unwrap();
     // The sink sets FLT_no_timeout (bit 5) and Source_Test_Update before training.
-    sink.regs[SOURCE_TEST_CONFIG as usize] = 0x20;
-    sink.regs[UPDATE_0 as usize] = SOURCE_TEST_UPDATE;
-    sink.flt_ready_after = Some(10);
-    sink.rounds = vec![round(0, [0x0; 4])];
-    sink.frl_start_after = Some(0);
+    bench.preset_scdc(SOURCE_TEST_CONFIG, 0x20);
+    bench.preset_scdc(UPDATE_0, SOURCE_TEST_UPDATE);
+    // FLT_ready arrives late: on the tenth read of Status_Flags_0.
+    bench.preset_scdc(STATUS_FLAGS_0, 0);
+    bench
+        .schedule_action(
+            Action::Preset {
+                reg: STATUS_FLAGS_0,
+                value: FLT_READY,
+            },
+            When::BeforeOp {
+                filter: Filter::ANY.with_addr(0x54).with_first(STATUS_FLAGS_0),
+                nth: 10,
+            },
+        )
+        .unwrap();
     let mut config = ffe_3();
     config.flt_ready_polls = 2;
 
-    let (outcome, sink, _) = train(sink, &[R12], &config);
+    let outcome = train(&bench, &[R12], &config);
 
     // FLT_ready arrives after the normal limit, which FLT_no_timeout suspends.
     assert!(matches!(
@@ -370,28 +297,66 @@ fn flt_no_timeout_from_source_test_configuration() {
             ..
         }
     ));
-    assert_eq!(sink.regs[UPDATE_0 as usize] & SOURCE_TEST_UPDATE, 0);
+    assert_eq!(reg(&bench, UPDATE_0) & SOURCE_TEST_UPDATE, 0);
 }
 
-/// Trains `sink` over `rates`, returning the warnings with the outcome.
+/// Shows a request the sink did not make on the wire: `nibble` in `lane`'s place while the
+/// register holds `when_held` there. The sink still trains on what it holds.
+struct Undefined {
+    lane: usize,
+    nibble: u8,
+}
+
+impl ScdcHook for Undefined {
+    fn read(&mut self, reg: u8, value: u8, _: &ScdcRegisters<'_>, _: &mut Env<'_>) -> u8 {
+        let (at, shift) = (LTP_REQ_01 + (self.lane / 2) as u8, 4 * (self.lane % 2));
+        if reg == at {
+            (value & !(0x0F << shift)) | (self.nibble << shift)
+        } else {
+            value
+        }
+    }
+}
+
+/// Trains on `bench`, returning the warnings with the outcome.
 fn train_with_warnings(
-    sink: Sink,
+    bench: &Bench<'_>,
     rates: &[HdmiForumFrl],
 ) -> (TrainingOutcome, Vec<TrainingWarning>) {
-    let mut trainer = FrlTrainer::new(Scdc::new(SinkTransport(RefCell::new(sink))), Phy::default());
-    let trained = trainer.train(rates, &ffe_3()).unwrap();
+    let trained = trainer(bench).train(rates, &ffe_3()).unwrap();
     let warnings = trained.iter_warnings().copied().collect();
     (trained.outcome, warnings)
 }
 
 #[test]
 fn an_undefined_request_is_ignored_and_reported() {
-    let mut sink = Sink::new();
-    sink.flt_ready_after = Some(0);
-    sink.rounds = vec![round(0, [0x5, 0x9, 0x5, 0x5]), round(0, [0x0; 4])];
-    sink.frl_start_after = Some(0);
+    // The sink asks nothing of lane 1, and the wire shows 0x9 there while it asks for
+    // patterns: plumbob ignores it, and training passes on the other lanes.
+    let config = FRL_SINK.with_ltp_requests(LanePatterns {
+        lane1: None,
+        ..same(LtpPattern::Lfsr0)
+    });
+    let mut hook = Undefined { lane: 1, nibble: 0 };
+    struct WhileRequesting<'h>(&'h mut Undefined);
+    impl ScdcHook for WhileRequesting<'_> {
+        fn read(&mut self, reg: u8, value: u8, regs: &ScdcRegisters<'_>, env: &mut Env<'_>) -> u8 {
+            // Lane 0 asking for a pattern: the requesting round, not the pass.
+            self.0.nibble = if regs.get(LTP_REQ_01) & 0x0F != 0 {
+                0x9
+            } else {
+                0
+            };
+            self.0.read(reg, value, regs, env)
+        }
+    }
+    let mut hook = WhileRequesting(&mut hook);
+    let bench = Bench::builder(&[])
+        .sink(config)
+        .scdc_hook(&mut hook)
+        .build()
+        .unwrap();
 
-    let (outcome, warnings) = train_with_warnings(sink, &[R12]);
+    let (outcome, warnings) = train_with_warnings(&bench, &[R12]);
 
     assert!(matches!(
         outcome,
@@ -400,70 +365,88 @@ fn an_undefined_request_is_ignored_and_reported() {
             ..
         }
     ));
-    assert!(matches!(
-        warnings.as_slice(),
-        [TrainingWarning::UndefinedLtpRequest {
-            lane: 1,
-            value: 0x9,
-            count: 1,
-            in_use: true,
-            ..
-        }]
-    ));
+    assert!(
+        matches!(
+            warnings.as_slice(),
+            [TrainingWarning::UndefinedLtpRequest {
+                lane: 1,
+                value: 0x9,
+                count: 1,
+                in_use: true,
+                ..
+            }]
+        ),
+        "{warnings:?}"
+    );
 }
 
 #[test]
 fn a_three_lane_link_ignores_an_undefined_lane_3_nibble() {
-    // Lane 3 is not in use at a 3-lane rate; an undefined value there used to end
-    // training with a protocol error.
+    // Lane 3 is not in use at a 3-lane rate; the wire shows 0x9 there in every round.
     let rate = HdmiForumFrl::Rate6Gbps3Lanes;
-    let mut sink = Sink::new();
-    sink.flt_ready_after = Some(0);
-    sink.rounds = vec![
-        round(0, [0x5, 0x5, 0x5, 0x9]),
-        round(0, [0x0, 0x0, 0x0, 0x9]),
-    ];
-    sink.frl_start_after = Some(0);
+    let mut hook = Undefined {
+        lane: 3,
+        nibble: 0x9,
+    };
+    let bench = Bench::builder(&[])
+        .sink(FRL_SINK)
+        .scdc_hook(&mut hook)
+        .build()
+        .unwrap();
 
-    let (outcome, warnings) = train_with_warnings(sink, &[rate]);
+    let (outcome, warnings) = train_with_warnings(&bench, &[rate]);
 
     assert!(matches!(
         outcome,
         TrainingOutcome::Success { achieved_rate, .. } if achieved_rate == rate
     ));
-    assert!(matches!(
-        warnings.as_slice(),
-        [TrainingWarning::UndefinedLtpRequest {
-            lane: 3,
-            value: 0x9,
-            count: 2,
-            in_use: false,
-            ..
-        }]
-    ));
+    assert!(
+        matches!(
+            warnings.as_slice(),
+            [TrainingWarning::UndefinedLtpRequest {
+                lane: 3,
+                value: 0x9,
+                count: 2,
+                in_use: false,
+                ..
+            }]
+        ),
+        "{warnings:?}"
+    );
 }
 
 #[test]
 fn frl_start_together_with_flt_update_retrains() {
-    // LTS:P sees both flags at once: the retrain wins, and the second pass starts.
-    let mut sink = Sink::new();
-    sink.flt_ready_after = Some(0);
-    sink.rounds = vec![
-        round(0, [0x5; 4]),
-        round(0, [0x0; 4]),
-        round(0, [0x6; 4]),
-        round(0, [0x0; 4]),
-    ];
-    sink.frl_start_with_round = Some(2);
-    sink.frl_start_after = Some(0);
-    let mut trainer = FrlTrainer::new(Scdc::new(SinkTransport(RefCell::new(sink))), Phy::default());
+    // After the pass, the sink sets FRL_start and FLT_update at once, asking for LFSR 1
+    // on every lane (scripted: a sink-started retrain); then it passes again.
+    let bench = Bench::new(FRL_SINK, &[]).unwrap();
+    post_at(
+        &bench,
+        When::AfterOp {
+            filter: update_0_writes(),
+            nth: 3,
+        },
+        [0x66, 0x66],
+        FRL_START | FLT_UPDATE,
+    );
+    post_at(
+        &bench,
+        // plumbob clears FRL_start first (the fourth write), takes the requests, then clears
+        // FLT_update (the fifth).
+        When::AfterOp {
+            filter: update_0_writes(),
+            nth: 5,
+        },
+        [0x00, 0x00],
+        FLT_UPDATE,
+    );
+    let mut trainer = trainer(&bench);
     let mut events = Vec::new();
     let outcome = trainer
         .train_with_events(&[R12], &ffe_3(), &mut |event| events.push(event))
         .unwrap()
         .outcome;
-    let (scdc, phy) = trainer.into_parts();
-    let sink = scdc.into_transport().0.into_inner();
+
     assert!(matches!(
         outcome,
         TrainingOutcome::Success {
@@ -471,61 +454,73 @@ fn frl_start_together_with_flt_update_retrains() {
             ..
         }
     ));
-    assert!(events.contains(&TrainingEvent::FrlStartWithRetrain));
+    assert!(
+        events.contains(&TrainingEvent::FrlStartWithRetrain),
+        "{events:?}"
+    );
     assert_eq!(
-        sink.regs[UPDATE_0 as usize], 0,
+        reg(&bench, UPDATE_0) & (FRL_START | FLT_UPDATE),
+        0,
         "every flag plumbob saw is cleared"
     );
-    let lfsr1 = Some(LtpPattern::Lfsr1);
-    assert!(phy.patterns.contains(&LanePatterns {
-        lane0: lfsr1,
-        lane1: lfsr1,
-        lane2: lfsr1,
-        lane3: lfsr1,
-    }));
+    assert!(patterns(&bench).contains(&same(LtpPattern::Lfsr1)));
 }
 
 #[test]
 fn an_io_error_mid_training_exits_to_tmds() {
     // A DDC NACK reading the lane requests in LTS:3: plumbob still runs LTS:L, which turns
     // FRL off in Config_1, returns the PHY to TMDS and clears the pending FLT_update.
-    let mut sink = Sink::new();
-    sink.flt_ready_after = Some(0);
-    sink.rounds = vec![round(0, [0x5; 4])];
-    sink.nack_read_of = Some(STATUS_FLAGS_1);
-    let mut trainer = FrlTrainer::new(Scdc::new(SinkTransport(RefCell::new(sink))), Phy::default());
-    let result = trainer.train(&[R12], &ffe_3());
+    let bench = Bench::new(FRL_SINK, &[]).unwrap();
+    bench
+        .schedule(
+            Fault::new(Effect::Fail(DdcErrorKind::NoAcknowledge(
+                NoAcknowledgeSource::Data,
+            )))
+            .on(Filter::ANY.with_addr(0x54).with_first(LTP_REQ_01)),
+        )
+        .unwrap();
+    let result = trainer(&bench).train(&[R12], &ffe_3());
     assert!(
         matches!(
             result,
             Err(TrainingError::Scdc {
-                error: ScdcError::Transport(Nack),
+                error: ScdcError::Transport(_),
                 exit: TmdsExit::Exited,
                 ..
             })
         ),
         "{result:?}"
     );
-    let (scdc, phy) = trainer.into_parts();
-    let sink = scdc.into_transport().0.into_inner();
-    assert_eq!(sink.config_1_writes, [0x36, 0x00]);
-    assert_eq!(phy.rates, [R12, HdmiForumFrl::NotSupported]);
-    assert_eq!(sink.regs[UPDATE_0 as usize] & FLT_UPDATE, 0);
+    assert_eq!(config_1_writes(&bench), [0x36, 0x00]);
+    assert_eq!(rates(&bench), [R12, HdmiForumFrl::NotSupported]);
+    assert_eq!(reg(&bench, UPDATE_0) & FLT_UPDATE, 0);
 }
 
 #[test]
 fn a_retrain_resumes_from_no_pattern_at_register_level() {
-    let mut sink = Sink::new();
-    sink.flt_ready_after = Some(0);
-    sink.rounds = vec![
-        round(0, [0x5; 4]),
-        round(0, [0x0; 4]),
-        // The retrain: only lane 0 asks for a pattern (LFSR 1).
-        round(1, [0x6, 0x0, 0x0, 0x0]),
-        round(0, [0x0; 4]),
-    ];
-    sink.frl_start_after = Some(0);
-    let (outcome, sink, phy) = train(sink, &[R12], &ffe_3());
+    // After the pass, the sink asks lane 0 alone for LFSR 1 (scripted), then passes again.
+    let bench = Bench::new(FRL_SINK, &[]).unwrap();
+    post_at(
+        &bench,
+        When::AfterOp {
+            filter: update_0_writes(),
+            nth: 3,
+        },
+        [0x06, 0x00],
+        FLT_UPDATE,
+    );
+    post_at(
+        &bench,
+        When::AfterOp {
+            filter: update_0_writes(),
+            nth: 4,
+        },
+        [0x00, 0x00],
+        FLT_UPDATE,
+    );
+
+    let outcome = train(&bench, &[R12], &ffe_3());
+
     assert!(matches!(
         outcome,
         TrainingOutcome::Success {
@@ -533,8 +528,8 @@ fn a_retrain_resumes_from_no_pattern_at_register_level() {
             ..
         }
     ));
-    assert_eq!(sink.regs[UPDATE_0 as usize], 0);
-    assert!(phy.patterns.contains(&LanePatterns {
+    assert_eq!(reg(&bench, UPDATE_0) & (FRL_START | FLT_UPDATE), 0);
+    assert!(patterns(&bench).contains(&LanePatterns {
         lane0: Some(LtpPattern::Lfsr1),
         lane1: None,
         lane2: None,
@@ -544,13 +539,12 @@ fn a_retrain_resumes_from_no_pattern_at_register_level() {
 
 #[test]
 fn update_0_flags_plumbob_does_not_handle_are_left_set() {
-    let mut sink = Sink::new();
+    let bench = Bench::new(FRL_SINK, &[]).unwrap();
     // Status_Update, CED_Update, RR_Test and RSED_Update.
-    sink.regs[UPDATE_0 as usize] = 0x01 | 0x02 | 0x04 | 0x40;
-    sink.flt_ready_after = Some(0);
-    sink.rounds = vec![round(0, [0x5; 4]), round(0, [0x0; 4])];
-    sink.frl_start_after = Some(0);
-    let (outcome, sink, _) = train(sink, &[R12], &ffe_3());
+    bench.preset_scdc(UPDATE_0, 0x01 | 0x02 | 0x04 | 0x40);
+
+    let outcome = train(&bench, &[R12], &ffe_3());
+
     assert!(matches!(
         outcome,
         TrainingOutcome::Success {
@@ -558,7 +552,7 @@ fn update_0_flags_plumbob_does_not_handle_are_left_set() {
             ..
         }
     ));
-    assert_eq!(sink.regs[UPDATE_0 as usize], 0x47);
+    assert_eq!(reg(&bench, UPDATE_0), 0x47);
 }
 
 #[test]
@@ -566,17 +560,23 @@ fn the_ffe_maximum_is_limited_per_rate() {
     // FfeLevels::MAX is 7; up to 12 Gbps a sink allows 3. plumbob limits the levels before
     // culvert encodes them (culvert would reject 7 at these rates).
     for (rate, config_1) in [(R12, 0x36u8), (HdmiForumFrl::Rate3Gbps3Lanes, 0x31)] {
-        let mut sink = Sink::new();
-        sink.flt_ready_after = Some(0);
-        sink.rounds = vec![round(0, [0x0; 4])];
-        sink.frl_start_after = Some(0);
+        let bench = Bench::new(FRL_SINK, &[]).unwrap();
         let mut config = TrainingConfig::default();
         config.ffe_levels = FfeLevels::MAX;
-        let (outcome, sink, _) = train(sink, &[rate], &config);
+        let outcome = train(&bench, &[rate], &config);
         assert!(matches!(
             outcome,
             TrainingOutcome::Success { achieved_rate, .. } if achieved_rate == rate
         ));
-        assert_eq!(sink.config_1_writes, [config_1]);
+        assert_eq!(config_1_writes(&bench), [config_1]);
     }
+}
+
+#[test]
+fn a_whole_training_takes_bench_time() {
+    // The sink matches patterns over its lock trigger: training is not instantaneous.
+    let bench = Bench::new(FRL_SINK, &[]).unwrap();
+    let start = bench.now();
+    train(&bench, &[R12], &ffe_3());
+    assert!(bench.now().saturating_duration_since(start) >= Duration::from_millis(2));
 }
