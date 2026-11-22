@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-22
+
+### Added
+
+- **`codec::decode_tmds_config_reading`** decodes `TMDS_Config` into the
+  `TmdsConfigReading` that `Scdc::read_tmds_config` returns, which now uses it; shared with
+  culvert-async, which cannot construct the `#[non_exhaustive]` struct itself.
+
 ## [0.4.0] - 2026-11-22
 
 ### Breaking changes
