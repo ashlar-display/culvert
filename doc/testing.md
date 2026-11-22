@@ -102,27 +102,39 @@ When compiled with `--features plumbob`, two more sets of tests run:
   as `LtpReq::Reserved`), each flag clear writing only its own bit, `Config_1` encoding
   (including FRL off), culvert's FFE-levels check, and transport errors from every
   method.
-- **End-to-end tests** run plumbob's `FrlTrainer` through `Scdc<T>` against a sink
-  simulated at the register level: `FLT_ready` after N reads, request nibbles posted in
-  `Status_Flags_1/2` with `FLT_update`, write-1-to-clear `Update_0`, and `Config_1`
-  starting and ending training. They cover a full training run, a rate drop, a timeout and
-  exhausted rates ending in TMDS, `FLT_no_timeout`, an undefined request ignored and
-  returned as a `TrainingWarning`, a 3-lane link whose unused lane 3 reports an undefined
-  value, `FRL_start` and `FLT_update` set together (the retrain wins, and
-  `FrlStartWithRetrain` is recorded), a DDC NACK mid-LTS:3 still ending in LTS:L
-  (`Config_1` back to 0, the PHY in TMDS, `FLT_update` cleared), a retrain resuming from
-  no pattern, the `Update_0` flags plumbob does not handle left set, and the FFE maximum
-  limited per rate in the `Config_1` byte. They check the whole chain — plumbob's
-  sequencing, culvert's encoding, and the register bits in between.
+- **End-to-end tests** run plumbob's `FrlTrainer` through `Scdc<T>` against
+  [maquette](https://docs.rs/maquette)'s simulated FRL sink and PHY (a dev-dependency),
+  over its DDC bus as hdmi-hal's `ScdcOverDdc`. The sink trains as the public receivers
+  do — `FLT_ready`, the lanes' requests in `Status_Flags_1/2` with `FLT_update`,
+  write-1-to-clear `Update_0`, `Config_1` starting and ending training — and the PHY's
+  patterns and equalization reach it on the line; what a sink does not do by itself is
+  scripted with scheduled presets or the SCDC hook. They cover a full training run, a rate
+  drop, a timeout and exhausted rates ending in LTS:L, `FLT_no_timeout`, an undefined
+  request ignored and returned as a `TrainingWarning`, a 3-lane link whose unused lane 3
+  reports an undefined value, `FRL_start` and `FLT_update` set together (the retrain wins,
+  and `FrlStartWithRetrain` is recorded), a DDC NACK mid-LTS:3 still ending in LTS:L
+  (`Config_1` back to 0, the PHY's FRL off, `FLT_update` cleared), a retrain resuming from
+  no pattern, the `Update_0` flags plumbob does not handle left set, the FFE maximum
+  limited per rate in the `Config_1` byte, and the simulated time a whole training takes.
+  They check the whole chain — plumbob's sequencing, culvert's encoding, and the register
+  bits in between.
 
 CI's coverage run measures the default features and `--features plumbob` together, so
 the feature's module is part of the coverage ratchet.
+
+## Builds
+
+CI runs the tests with and without the `plumbob` feature, on stable and on the MSRV, and
+builds both for `thumbv7em-none-eabi`, which has no `std`. The README's example runs as a
+doctest against a hidden sink that is ready for FRL training, has `FLT_update` pending and
+reports errors on lane 0, so every branch of it runs and its writes are asserted; the `scdc` example
+runs against its simulated transport.
 
 ## Coverage
 
 CI measures line coverage with `cargo-llvm-cov`, over the default features and the
 `plumbob` feature merged into one report. The baseline is stored in
-`.coverage-baseline` (currently 100%); CI fails if coverage drops more than 0.1% below
+`.coverage-baseline` (currently 100%); CI fails if coverage drops more than 0.1 percentage points below
 it. New register coverage without tests will trip this.
 
 ## Philosophy

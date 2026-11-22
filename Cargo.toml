@@ -1,6 +1,6 @@
 [package]
 name = "culvert"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Typed access to the HDMI 2.1 SCDC register map"
@@ -10,17 +10,23 @@ repository = "https://github.com/ashlar-display/culvert"
 homepage = "https://ashlar-display.org"
 keywords = ["ashlar", "hdmi", "no-std", "scdc", "frl"]
 categories = ["hardware-support", "embedded", "no-std", "no-std::no-alloc"]
+include = ["src/**", "doc/**", "README.md", "CHANGELOG.md", "LICENSE"]
 
 [package.metadata.docs.rs]
 all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 plumbob = ["dep:plumbob"]
 
 [dependencies]
 display-types = { version = ">=0.4.3, <0.6", default-features = false }
-hdmi-hal = { version = "0.6", default-features = false }
-plumbob = { optional = true, version = "0.4" }
+hdmi-hal = { version = "0.7", default-features = false }
+plumbob = { optional = true, version = "0.5" }
 
 [dev-dependencies]
-hdmi-hal = { version = "0.6", default-features = false }
+hdmi-hal = { version = "0.7", default-features = false }
+maquette = { version = "0.1", features = ["std"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(docsrs)"] }

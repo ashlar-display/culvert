@@ -12,6 +12,7 @@
 //! The register map itself — addresses and per-register encoding and decoding — is the
 //! I/O-free [`codec`] module, which `Scdc` and `culvert-async`'s client share.
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
@@ -21,11 +22,16 @@ mod error;
 mod register;
 
 pub use client::Scdc;
-pub use error::{ProtocolError, ScdcError};
+pub use error::{ProtocolError, ReadModifyWriteError, ScdcError};
 /// The transport `Scdc<T>` is generic over, re-exported from `hdmi-hal`.
 pub use hdmi_hal::scdc::ScdcTransport;
 pub use register::{
     CedCount, CedCounters, CedReading, CedWarning, ClearableUpdateFlags, Config0, FfeLevels,
     FrlConfig, FrlRate, HdmiLanes, LtpReq, LtpRequests, RsCorrectionCount, ScramblerStatus,
-    SourceTestConfig, StatusFlags, TmdsConfig, UpdateFlags,
+    SourceTestConfig, StatusFlags, TmdsConfig, TmdsConfigReading, UpdateFlags,
 };
+
+// Compiles and runs the README's examples as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;

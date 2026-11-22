@@ -7,6 +7,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-22
+
+### Breaking changes
+
+- **Requires hdmi-hal 0.7**, its breaking release. The re-exported `ScdcTransport` is 0.7's,
+  whose `Error` is bounded by `DdcError`: a transport's error type implements
+  `DdcError::kind` (hdmi-hal implements it for `Infallible`, `()` and `DdcErrorKind`).
+- **The `plumbob` feature requires plumbob 0.5**, on hdmi-hal 0.7, whose PHY trait is
+  `FrlPhy`.
+
+### Added
+
+- **`ScdcError`, `ReadModifyWriteError` and `ProtocolError` are `Clone`, `Copy`,
+  `PartialEq` and `Eq`** where the transport's error is, and implement `Display` and
+  `core::error::Error`, with the transport's error as the `source` of a transport failure.
+  So results holding them can be kept, compared and printed, also without `alloc`.
+- **`Scdc::read_tmds_config`** reads `TMDS_Config` (0x20) and returns a
+  `TmdsConfigReading`: the two bits `write_tmds_config` sets, and the whole byte, so a
+  sink that sets reserved bits stays visible.
+- **`Scdc::update_tmds_config`**: a read-modify-write of `TMDS_Config` that sets
+  `Scrambling_Enable` and `TMDS_Bit_Clock_Ratio` and keeps every other bit as read.
+  `ReadModifyWriteError` says which transfer failed: `Read` (nothing written) or `Write`;
+  exhaustive, since there is never a third transfer.
+- **`codec::decode_tmds_config` and `codec::update_tmds_config_byte`**, shared with
+  culvert-async.
+- **`ScramblerStatus::raw`**: the `Scrambler_Status` byte as read, reserved bits included,
+  as `TmdsConfigReading::raw` is for `TMDS_Config`; `ScramblerStatus::new` sets it to the
+  byte holding the status bit alone. Additive: the struct is `#[non_exhaustive]`.
+- **docs.rs marks the items that need the `plumbob` feature** with the `doc_cfg` badge,
+  enabled only in docs.rs builds.
+
+### Changed
+
+- **The README names [spiritlevel](https://github.com/ashlar-display/spiritlevel)**, the
+  TMDS bring-up crate, in "Stack position" and its diagram, where it said "TMDS bring-up
+  (planned)"; the roadmap's `read_tmds_config` item names it too.
+- **The README's Ashlar block links the stack's crate list** instead of naming every crate,
+  so it no longer goes stale on crates.io when a crate is added.
+
+### Internal
+
+- **The `plumbob` feature's end-to-end tests run against maquette's simulated sink**
+  (`tests/plumbob.rs`, a dev-dependency on maquette) instead of a hand-written one: the sink
+  trains as the public receivers do, and the PHY's patterns and equalization reach it on the
+  line.
+- CI fails on `main`, and the publish workflow before anything is built, when `Cargo.toml`
+  has a `[patch]` section: `cargo package` drops it, so a release built with one would not
+  build from crates.io.
+- **The IDE's project files are no longer tracked**: five `.idea/` files were committed
+  before `.gitignore` listed the directory, and shipped in the published `.crate`.
+- **`.gitignore` covers the fuzzer's crash artifacts** (`fuzz/artifacts`), as it already did
+  its build and coverage output.
+- **The README's Rust example runs as a doctest** (`ReadmeDoctests` in `lib.rs`, compiled
+  only for `cargo test`), against a hidden sink that is ready for FRL training, has
+  `FLT_update` pending and reports errors on lane 0, so every branch of it runs; hidden
+  asserts check what it writes and reads.
+- **The published `.crate` holds only what the crate needs**: `include` in `Cargo.toml`
+  limits it to the sources, `doc/`, the README, changelog and license; it also shipped the
+  CI workflows, Dependabot configuration, coverage baseline, tests and example.
+- **The documentation is built as docs.rs builds it, weekly**: `docs.yml` runs
+  `cargo doc --all-features` with nightly and `--cfg docsrs` (and `-D warnings`), so a
+  nightly change to the `doc_cfg` feature badges shows up before it breaks a docs.rs build.
+- **CI runs with a read-only token by default**: `ci.yml` sets `permissions: contents: read`;
+  the coverage job keeps the write permissions it needs to open its ratchet PR. The test job
+  ran with the repository's default token permissions.
+- **CI's test job does not keep the checkout's git credentials** (`persist-credentials:
+  false`); it never pushes. The coverage job keeps them to push its ratchet branch.
+- **CI fails on `main` when `Cargo.toml` has a `[patch]` section**: `cargo package` drops
+  it, so a release built with one would not build from crates.io.
+- **Clippy lints the tests and the example too, with and without the `plumbob` feature**
+  (`--all-targets`), in CI and in the publish workflow's `verify` job; it linted only the
+  library, with every feature.
+- **rustdoc runs with `-D warnings`**, as docs.rs builds, in CI and in the publish
+  workflow's `verify` job: `-D missing_docs` alone let broken intra-doc links through.
+- **CI runs the example** (`cargo run --example scdc`), not only builds it, in `ci.yml` and
+  in the publish workflow's `verify` job.
+- **The MSRV is checked**: an `MSRV` job in CI and in the publish workflow (which waits for
+  it) runs the tests and the bare-metal builds, with and without the `plumbob` feature, on
+  the `rust-version` from `Cargo.toml` (1.85) with `cargo msrv verify`; the crate declared
+  it, and nothing checked it.
+- **The coverage job's cache is keyed on the Rust version** as well as `Cargo.lock`, so a
+  `target/` built by an older Rust is not restored: `cargo llvm-cov clean --workspace`
+  leaves its instrumented binaries behind, and the report would count their lines as
+  uncovered (it did so in other Ashlar crates after the update to Rust 1.100).
+- **The fuzz workflow runs with a read-only token by default**, and its fuzz job without
+  the checkout's git credentials; the corpus job keeps both, to push its PR.
+- **`doc/setup.md` lists the checks CI runs**: clippy over all targets with and without the
+  `plumbob` feature, rustdoc with `-D warnings`, the bare-metal `no_std` builds and the MSRV
+  check.
+- **`doc/testing.md` describes the builds** CI runs the tests in, the README doctest and
+  the example run.
+- **`CONTRIBUTING.md` matches the CI checks** (clippy over all targets with and without the
+  `plumbob` feature, rustdoc with `-D warnings`, the example, the bare-metal builds and the
+  MSRV), and has a publishing section on the crates culvert builds on and re-exports.
+- **The README's documentation list links `CONTRIBUTING.md`.**
+- **The publish workflow's `verify` job fails on a `[patch]` section** too, as `ci.yml`
+  does on `main`: the release does not wait for `main`'s CI.
+- **`CONTRIBUTING.md` states the provenance rule** for claims about HDMI behaviour (two
+  independent public implementations, cited), and gives the coverage tolerance as 0.1
+  percentage points, as CI checks it, not 0.1%.
+- **The docs give the coverage tolerance as 0.1 percentage points everywhere** (as CI
+  checks it, not 0.1%), and `doc/setup.md` installs the cargo-msrv version CI pins
+  (0.19.6).
+- **`CONTRIBUTING.md`'s publishing section names plumbob** (public through the `plumbob`
+  feature's `ScdcClient` implementation), and says when a dependency's breaking release is
+  one of culvert's: not when the version requirement keeps accepting the old release.
+- **`doc/architecture.md` explains the separate clear type as it is**, without the date and
+  the development history it carried.
+- **The MSRV job shows why it failed**: `cargo msrv verify` runs without
+  `--output-format minimal`, which printed only `true` or `false` and dropped the compiler
+  error.
+- **`doc/setup.md` says to measure the coverage baseline with the Rust version CI uses**:
+  Rust versions count lines differently, so a baseline measured with another version can
+  fail CI without a change in coverage.
+
 ## [0.3.1] - 2026-11-03
 
 ### Changed

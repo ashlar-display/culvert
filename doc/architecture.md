@@ -219,19 +219,16 @@ another contradicts it:
   nothing, as far as any source shows.
 - Nothing in the stack needs to clear it: plumbob clears only `FLT_update`, `FRL_start`
   and `Source_Test_Update`.
-- Nothing is dropped silently. culvert used to leave `rr_test` out of the write and
-  return `Ok(())`, leaving the caller to believe the flag was cleared; with no field for
-  it, the clear says exactly what is written.
+- Nothing is dropped silently: with no field for `rr_test`, the clear says exactly what
+  is written.
 
-**Why a separate type (October 2026).** A first version kept one `UpdateFlags` for reads
-and clears and refused a clear with `rr_test` set (`ProtocolError::RrTestNotClearable`,
-writing nothing). The second review of the FRL rework showed the cost: a caller that
-clears what it has just read — the natural loop for an integration layer, a kernel driver
-or firmware watching `Status_Update`, `CED_Update` and `FLT_update` after training — works
-on every ordinary sink and fails on every clear once a sink sets `RR_Test`, which is to
-say on compliance equipment, leaving `FLT_update` set. The bug would surface late, in
-front of a tester. With a separate type it cannot be written: the compiler catches it,
-`clearable()` names the one bit left out at the call site, and the refusal error is gone.
+**Why a separate type.** With one `UpdateFlags` for reads and clears, the natural loop —
+clearing what was just read, as an integration layer, a kernel driver or firmware watching
+`Status_Update`, `CED_Update` and `FLT_update` after training does — works on every
+ordinary sink and fails on every clear once a sink sets `RR_Test`, which is to say on
+compliance equipment, leaving `FLT_update` set. The bug would surface late, in front of a
+tester. With a separate type it cannot be written: the compiler catches it, and
+`clearable()` names the one bit left out at the call site.
 
 **Alternatives considered.** Following Amlogic and writing whatever the caller asks
 (most literal register access, but lets a caller break an RR test if Intel is right); one
@@ -269,6 +266,10 @@ impl<T: ScdcTransport> Scdc<T> {
 
     // Scrambling
     pub fn write_tmds_config(&mut self, config: TmdsConfig) -> Result<(), ScdcError<T::Error>>;
+    pub fn read_tmds_config(&mut self) -> Result<TmdsConfigReading, ScdcError<T::Error>>;
+    /// Read-modify-write: the two bits from `config`, every other bit as read.
+    pub fn update_tmds_config(&mut self, config: TmdsConfig)
+        -> Result<(), ReadModifyWriteError<T::Error>>;
     pub fn read_scrambler_status(&mut self) -> Result<ScramblerStatus, ScdcError<T::Error>>;
 
     // FRL configuration
@@ -334,9 +335,7 @@ caller.
 
 `Scdc<T>`'s methods only perform the reads and writes and hand the bytes to `codec`.
 `culvert-async`'s client does the same with `.await`, so the sync and async clients share
-one register map: an address or bit-layout fix in `codec` reaches both. The stack design
-document's "Sync and Async Companions" section records why the shared part lives in
-culvert.
+one register map: an address or bit-layout fix in `codec` reaches both.
 
 ---
 
@@ -350,6 +349,7 @@ pub struct TmdsConfig {
 
 pub struct ScramblerStatus {
     pub scrambling_active: bool,
+    pub raw: u8,                      // the byte as read
 }
 
 /// `Config_0` (0x30).

@@ -18,18 +18,36 @@ pub struct TmdsConfig {
     pub high_tmds_clock_ratio: bool,
 }
 
-/// Decoded content of `Scrambler_Status` (0x21).
+/// What [`Scdc::read_tmds_config`](crate::Scdc::read_tmds_config) read from `TMDS_Config`
+/// (0x20): the two bits culvert decodes, and the whole byte, so a sink that sets reserved
+/// bits stays visible.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TmdsConfigReading {
+    /// `Scrambling_Enable` (bit 0) and `TMDS_Bit_Clock_Ratio` (bit 1).
+    pub config: TmdsConfig,
+    /// The byte as read, reserved bits included.
+    pub raw: u8,
+}
+
+/// Decoded content of `Scrambler_Status` (0x21), with the byte it was decoded from, so a
+/// sink that reports reserved bits or noise beside the status bit stays visible.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ScramblerStatus {
     /// The sink confirms that TMDS scrambling is active.
     pub scrambling_active: bool,
+    /// The byte as read, reserved bits included.
+    pub raw: u8,
 }
 
 impl ScramblerStatus {
-    /// Constructs a `ScramblerStatus`.
+    /// Constructs a `ScramblerStatus`, with `raw` the byte holding that bit alone.
     pub fn new(scrambling_active: bool) -> Self {
-        Self { scrambling_active }
+        Self {
+            scrambling_active,
+            raw: u8::from(scrambling_active),
+        }
     }
 }
 
@@ -803,6 +821,8 @@ mod tests {
     fn scrambler_status_new() {
         assert!(ScramblerStatus::new(true).scrambling_active);
         assert!(!ScramblerStatus::new(false).scrambling_active);
+        assert_eq!(ScramblerStatus::new(true).raw, 0x01);
+        assert_eq!(ScramblerStatus::new(false).raw, 0x00);
     }
 
     #[test]

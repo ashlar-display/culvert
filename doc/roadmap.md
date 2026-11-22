@@ -8,34 +8,18 @@ first.
 
 ---
 
-## Following hdmi-hal's PHY trait split
+## `DdcError` re-exports and `ScdcError::transport_kind()`
 
-culvert re-exports hdmi-hal's `ScdcTransport`, so hdmi-hal's planned breaking release
-(splitting its PHY trait by link mode, with new clock, delay and power traits) is a breaking
-release of culvert as well, even though culvert's own API does not change. It carries
-`read_tmds_config` (below).
-
-The same hdmi-hal release adds `DdcBus`, one trait for the whole DDC bus, and bounds
-`ScdcTransport::Error` by `DdcError`, whose `kind()` classifies a transport failure (no
-acknowledgement, timeout, busy, unsupported, detached, other). culvert follows:
+`ScdcTransport::Error` is bounded by hdmi-hal's `DdcError`, whose `kind()` classifies a
+transport failure (no acknowledgement, timeout, busy, unsupported, detached, other). Two
+additive changes would let culvert's users work with it without depending on hdmi-hal
+directly:
 
 - **Re-exports** of `DdcError`, `DdcErrorKind` and `NoAcknowledgeSource` next to
-  `ScdcTransport`, since an implementor of `ScdcTransport` now writes them.
-- **`ScdcError::transport_kind()`**, additive: `Some(kind)` for a `Transport` error, `None`
-  for a protocol violation. Callers generic over the SCDC client can then tell a sink that
-  does not answer from a transient fault without reaching for the transport.
-- An `ScdcTransport` over a `DdcBus` is `hdmi-hal`'s adapter `ScdcOverDdc`; culvert does
-  not touch the DDC bus itself.
-
----
-
-## Reading `TMDS_Config` (0x20)
-
-culvert writes `TMDS_Config` (`write_tmds_config`) but cannot read it back. The planned
-TMDS bring-up crate checks, after a reconnect, whether the sink still holds the
-configuration the link needs, which takes a read: an additive `read_tmds_config`, with a
-`TMDS_Config` decoder in `codec` that also serves register dumps (see "Read-back decoders"
-below).
+  `ScdcTransport`, since an implementor of `ScdcTransport` writes them.
+- **`ScdcError::transport_kind()`**: `Some(kind)` for a `Transport` error, `None` for a
+  protocol violation. Callers generic over the SCDC client can then tell a sink that does
+  not answer from a transient fault without reaching for the transport.
 
 ---
 
@@ -100,10 +84,10 @@ reads the reserved registers 0x43–0x4F.
 
 A dump tool reads the register map through `ScdcTransport::read_block` in parts (a
 transport may limit the length; `hdmi-hal-i2c-dev`'s is 32 bytes) and decodes slices with
-`codec`: `decode_ced_block(&[u8; 9])` already works on a slice of a dump. Decoders for the
-registers culvert only writes are missing: `Config_0`, `Config_1` (rate and FFE levels;
-`ProtocolError::UnknownFrlRate`, "not currently returned", would be returned there) and
-`TMDS_Config`.
+`codec`: `decode_ced_block(&[u8; 9])` and `decode_tmds_config` already work on a slice of a
+dump. Decoders for the registers culvert only writes are missing: `Config_0` and `Config_1`
+(rate and FFE levels; `ProtocolError::UnknownFrlRate`, "not currently returned", would be
+returned there).
 
 ---
 

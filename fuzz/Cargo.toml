@@ -9,7 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-hdmi-hal = { version = "0.6", default-features = false }
+hdmi-hal = { version = "0.7", default-features = false }
 
 [dependencies.culvert]
 path = ".."

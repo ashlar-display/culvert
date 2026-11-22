@@ -1,4 +1,5 @@
 /target
 /fuzz/target
 /fuzz/coverage
+/fuzz/artifacts
 .idea
