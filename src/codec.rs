@@ -18,7 +18,7 @@ use crate::error::ProtocolError;
 use crate::register::{
     CedCount, CedCounters, CedReading, CedWarning, ClearableUpdateFlags, Config0, FfeLevels,
     FrlConfig, HdmiLanes, LtpReq, LtpRequests, RsCorrectionCount, ScramblerStatus,
-    SourceTestConfig, StatusFlags, TmdsConfig, UpdateFlags,
+    SourceTestConfig, StatusFlags, TmdsConfig, TmdsConfigReading, UpdateFlags,
 };
 
 // --- Addresses
@@ -89,6 +89,16 @@ pub fn decode_tmds_config(byte: u8) -> TmdsConfig {
     TmdsConfig {
         scrambling_enable: byte & 0x01 != 0,
         high_tmds_clock_ratio: byte & 0x02 != 0,
+    }
+}
+
+/// Decodes `TMDS_Config` as [`Scdc::read_tmds_config`](crate::Scdc::read_tmds_config)
+/// returns it: the two bits [`decode_tmds_config`] decodes, and the byte as read, reserved
+/// bits included.
+pub fn decode_tmds_config_reading(byte: u8) -> TmdsConfigReading {
+    TmdsConfigReading {
+        config: decode_tmds_config(byte),
+        raw: byte,
     }
 }
 
@@ -266,6 +276,20 @@ mod tests {
 
     fn count(value: u16) -> Option<CedCount> {
         Some(CedCount::new(value))
+    }
+
+    #[test]
+    fn a_tmds_config_reading_keeps_the_byte() {
+        assert_eq!(
+            decode_tmds_config_reading(0xA5),
+            TmdsConfigReading {
+                config: TmdsConfig {
+                    scrambling_enable: true,
+                    high_tmds_clock_ratio: false,
+                },
+                raw: 0xA5,
+            }
+        );
     }
 
     const VALID_LANES: [(u8, u8); 4] = [(0x02, 0x83), (0x04, 0x85), (0x06, 0x87), (0x08, 0x89)];

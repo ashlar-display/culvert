@@ -84,10 +84,10 @@ reads the reserved registers 0x43–0x4F.
 
 A dump tool reads the register map through `ScdcTransport::read_block` in parts (a
 transport may limit the length; `hdmi-hal-i2c-dev`'s is 32 bytes) and decodes slices with
-`codec`: `decode_ced_block(&[u8; 9])` and `decode_tmds_config` already work on a slice of a
-dump. Decoders for the registers culvert only writes are missing: `Config_0` and `Config_1`
-(rate and FFE levels; `ProtocolError::UnknownFrlRate`, "not currently returned", would be
-returned there).
+`codec`: `decode_ced_block(&[u8; 9])`, `decode_tmds_config` and `decode_tmds_config_reading`
+(which keeps the reserved bits) already work on a slice of a dump. Decoders for the
+registers culvert only writes are missing: `Config_0` and `Config_1` (rate and FFE levels;
+`ProtocolError::UnknownFrlRate`, "not currently returned", would be returned there).
 
 ---
 

@@ -19,14 +19,11 @@ impl<T: ScdcTransport> Scdc<T> {
     /// Reads `TMDS_Config` (0x20): the two bits [`write_tmds_config`](Self::write_tmds_config)
     /// sets, and the whole byte.
     pub fn read_tmds_config(&mut self) -> Result<TmdsConfigReading, ScdcError<T::Error>> {
-        let raw = self
+        let byte = self
             .transport
             .read(codec::TMDS_CONFIG)
             .map_err(ScdcError::Transport)?;
-        Ok(TmdsConfigReading {
-            config: codec::decode_tmds_config(raw),
-            raw,
-        })
+        Ok(codec::decode_tmds_config_reading(byte))
     }
 
     /// Sets `Scrambling_Enable` (bit 0) and `TMDS_Bit_Clock_Ratio` (bit 1) of `TMDS_Config`
