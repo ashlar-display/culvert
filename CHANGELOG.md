@@ -10,10 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`codec::decode_tmds_config_reading`** decodes `TMDS_Config` into the
-  `TmdsConfigReading` that `Scdc::read_tmds_config` returns, which now uses it. The struct is
-  `#[non_exhaustive]`, so culvert-async could not build one: its `read_tmds_config` decodes
-  through this function, as its `read_scrambler_status` does through
-  `codec::decode_scrambler_status`.
+  `TmdsConfigReading` that `Scdc::read_tmds_config` returns, which now uses it; shared with
+  culvert-async, which cannot construct the `#[non_exhaustive]` struct itself.
 
 ## [0.4.0] - 2026-11-22
 
